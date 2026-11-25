@@ -93,3 +93,28 @@ func (s *Store) MarkRead(instanceID, chat string) ([]Message, error) {
 		Order("timestamp DESC").Limit(unread).Omit("raw").Find(&msgs).Error
 	return msgs, err
 }
+
+// LastMessage es el último mensaje guardado de un chat; WhatsApp lo pide para
+// archivar o marcar como no leído.
+type LastMessage struct {
+	ID        string
+	FromMe    bool
+	Sender    string
+	Timestamp time.Time
+}
+
+// LastOf devuelve el último mensaje de un chat con el almacén global (ok=false
+// si el historial está apagado o no hay mensajes).
+func LastOf(instanceID, chat string) (LastMessage, bool) {
+	s := current()
+	if s == nil {
+		return LastMessage{}, false
+	}
+	var m Message
+	if err := s.db.Select("message_id", "from_me", "sender_jid", "timestamp").
+		Where("instance_id = ? AND chat_jid = ?", instanceID, chat).
+		Order("timestamp DESC, id DESC").Limit(1).Find(&m).Error; err != nil || m.MessageID == "" {
+		return LastMessage{}, false
+	}
+	return LastMessage{ID: m.MessageID, FromMe: m.FromMe, Sender: m.SenderJID, Timestamp: m.Timestamp}, true
+}

@@ -15,6 +15,7 @@ type ChatHandler interface {
 	ChatUnarchive(ctx *gin.Context)
 	ChatMute(ctx *gin.Context)
 	ChatUnmute(ctx *gin.Context)
+	ChatMarkUnread(ctx *gin.Context)
 	HistorySyncRequest(ctx *gin.Context)
 }
 
@@ -49,7 +50,7 @@ func (c *chatHandler) ChatPin(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -94,7 +95,7 @@ func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -139,7 +140,7 @@ func (c *chatHandler) ChatArchive(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -184,7 +185,7 @@ func (c *chatHandler) ChatUnarchive(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -229,7 +230,7 @@ func (c *chatHandler) ChatMute(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -274,7 +275,7 @@ func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat == "" {
+	if data.Chat == "" && data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
 		return
 	}
@@ -334,4 +335,38 @@ func NewChatHandler(
 	return &chatHandler{
 		chatService: chatService,
 	}
+}
+
+// Mark a chat as unread (or read)
+// @Summary Mark a chat as unread
+// @Description Marks the chat as unread on every device; with "read": true, marks it as read.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.BodyStruct true "Chat"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /chat/markunread [post]
+func (c *chatHandler) ChatMarkUnread(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var data *chat_service.BodyStruct
+	if err := ctx.ShouldBindBodyWithJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Chat == "" && data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+	ts, err := c.chatService.ChatMarkUnread(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": gin.H{"timestamp": ts}})
 }
