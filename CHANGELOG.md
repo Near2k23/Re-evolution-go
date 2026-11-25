@@ -1,5 +1,33 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.6 (fork Re-evolution-go, Fase 2: webhooks y ajustes)
+
+### 🆕 Nuevo
+- **Webhooks por línea** (`GET/PUT /webhook/:id`): cabeceras propias, una URL
+  por evento y firma HMAC (`X-Webhook-Signature`, `X-Webhook-Timestamp`);
+  siempre `X-Webhook-Event` y `X-Webhook-Delivery`.
+- **Reintentos con espera creciente** (1 s, 2 s, 4 s… hasta 60 s; 8 intentos,
+  ≈2 min como antes), sin reintentar 4xx salvo 408/425/429, y timeout por
+  intento.
+- **Registro de entregas** (`GET /webhook/:id/deliveries`), evento de prueba
+  (`POST /webhook/:id/test`) y % entregado en el panel.
+- **Ajuste «Ver estados»** (`readStatus`) y **`GET /instance/proxy/:id`**;
+  el manager permite editar el proxy.
+
+### 🐛 Correcciones
+- Un fallo de RabbitMQ, NATS o WebSocket impedía enviar el webhook.
+- El webhook global (`WEBHOOK_URL`) solo recibía eventos de líneas con
+  webhook propio.
+- «Marcar como leídos» enviaba el acuse al chat equivocado en grupos y leía
+  estados y mensajes propios.
+- Historial de chats: condición de carrera al encolar eventos.
+
+### ⬆️ Notas de actualización
+- Variables nuevas: `WEBHOOK_TIMEOUT_MS`, `WEBHOOK_RETRY_MAX`,
+  `WEBHOOK_RETRY_BASE_MS`, `WEBHOOK_SECRET`, `WEBHOOK_LOG_DAYS`.
+- Columna nueva `instances.read_status` y tablas `webhook_configs` y
+  `webhook_deliveries` (AutoMigrate).
+
 ## v0.7.3-re.5 (fork Re-evolution-go)
 
 ### 🐛 Correcciones

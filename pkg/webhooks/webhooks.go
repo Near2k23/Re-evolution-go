@@ -4,7 +4,7 @@
 // Variables de entorno:
 //
 //	WEBHOOK_TIMEOUT_MS     (15000) tiempo máximo de cada intento
-//	WEBHOOK_RETRY_MAX      (5)     intentos en total
+//	WEBHOOK_RETRY_MAX      (8)     intentos en total (≈2 min de reintentos, como upstream)
 //	WEBHOOK_RETRY_BASE_MS  (1000)  espera antes del 2.º intento; se duplica hasta 60 s
 //	WEBHOOK_SECRET         ("")    secreto HMAC para el webhook global (WEBHOOK_URL)
 //	WEBHOOK_LOG_DAYS       (3)     días que se guarda el registro de entregas
@@ -84,7 +84,7 @@ func envInt(key string, def int) int {
 func SettingsFromEnv() Settings {
 	s := Settings{
 		Timeout:      time.Duration(envInt("WEBHOOK_TIMEOUT_MS", 15000)) * time.Millisecond,
-		MaxAttempts:  envInt("WEBHOOK_RETRY_MAX", 5),
+		MaxAttempts:  envInt("WEBHOOK_RETRY_MAX", 8),
 		BaseDelay:    time.Duration(envInt("WEBHOOK_RETRY_BASE_MS", 1000)) * time.Millisecond,
 		GlobalSecret: os.Getenv("WEBHOOK_SECRET"),
 		LogDays:      envInt("WEBHOOK_LOG_DAYS", 3),
