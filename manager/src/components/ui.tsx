@@ -23,6 +23,7 @@ const PATHS: Record<string, string> = {
   lapiz: 'M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z',
   papelera: 'M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   enviar: 'M5 12h13M13 6l6 6-6 6',
+  bot: 'M8 8h8a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3zM12 4v4M9.5 13h.01M14.5 13h.01',
   chats: 'M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-5 4V6a1 1 0 0 1 1-1z',
 };
 
@@ -121,6 +122,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { to: '/', label: t('nav.panel'), icon: 'panel', end: true },
     { to: '/lineas', label: t('nav.lines'), icon: 'lineas', end: false },
     { to: '/chats', label: t('nav.chats'), icon: 'chats', end: false },
+    { to: '/bots', label: t('nav.bots'), icon: 'bot', end: false },
     { to: '/grupos', label: t('nav.groups'), icon: 'grupos', end: false },
     { to: '/eventos', label: t('nav.events'), icon: 'eventos', end: false },
   ];

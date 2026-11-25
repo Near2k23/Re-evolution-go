@@ -146,6 +146,54 @@ export interface StoredMessage {
   timestamp: string;
 }
 
+export type BotType = 'http' | 'n8n' | 'openai' | 'typebot' | 'dify' | 'flowise';
+
+export interface Bot {
+  id: string;
+  instanceId: string;
+  type: BotType;
+  name: string;
+  enabled: boolean;
+  priority: number;
+  triggerType: 'all' | 'keyword';
+  triggerOperator: 'contains' | 'equals' | 'startsWith' | 'endsWith' | 'regex';
+  triggerValue: string;
+  allowGroups: boolean;
+  listenFromMe: boolean;
+  stopOnFromMe: boolean;
+  keywordFinish: string;
+  expireMinutes: number;
+  delayMs: number;
+  debounceMs: number;
+  splitMessages: boolean;
+  unknownMessage: string;
+  ignoreJids: string[];
+  config: Record<string, unknown>;
+}
+
+export interface BotSession {
+  id: string;
+  remoteJid: string;
+  botId: string;
+  status: 'open' | 'paused' | 'closed';
+  pushName: string;
+  lastActivity: string;
+}
+
+export interface ChatwootConfig {
+  enabled: boolean;
+  url: string;
+  accountId: number;
+  inboxId: number;
+  inboxName: string;
+  signMessages: boolean;
+  reopenConversation: boolean;
+  conversationPending: boolean;
+  ignoreGroups: boolean;
+  hasToken: boolean;
+  webhookUrl?: string;
+}
+
 const KEY = 'enlace.session';
 
 export interface Session {
@@ -255,6 +303,17 @@ export const api = {
   proxy: (id: string) => request<Wrapped<ProxyInfo | null>>('GET', `/instance/proxy/${id}`).then((r) => r.data),
   setProxy: (id: string, p: { protocol: string; host: string; port: string; username: string; password: string }) => request('POST', `/instance/proxy/${id}`, { body: p }),
   removeProxy: (id: string) => request('DELETE', `/instance/proxy/${id}`),
+  bots: (id: string) => request<Wrapped<Bot[]>>('GET', `/bots/${id}`).then((r) => r.data ?? []),
+  createBot: (id: string, b: Omit<Bot, 'id' | 'instanceId'>) => request<Wrapped<Bot>>('POST', `/bots/${id}`, { body: b }).then((r) => r.data),
+  updateBot: (id: string, botId: string, b: Omit<Bot, 'id' | 'instanceId'>) => request<Wrapped<Bot>>('PUT', `/bots/${id}/${botId}`, { body: b }).then((r) => r.data),
+  deleteBot: (id: string, botId: string) => request('DELETE', `/bots/${id}/${botId}`),
+  botSessions: (id: string) => request<Wrapped<BotSession[]>>('GET', `/bots/${id}/sessions`).then((r) => r.data ?? []),
+  setSession: (id: string, sessionId: string, status: BotSession['status']) => request('POST', `/bots/${id}/sessions/${sessionId}`, { body: { status } }),
+  chatwoot: (id: string) => request<Wrapped<ChatwootConfig>>('GET', `/chatwoot/${id}`).then((r) => r.data),
+  saveChatwoot: (id: string, c: Omit<ChatwootConfig, 'hasToken' | 'webhookUrl'> & { token: string }) =>
+    request<Wrapped<ChatwootConfig>>('PUT', `/chatwoot/${id}`, { body: c }).then((r) => r.data),
+  testChatwoot: (id: string, url: string, accountId: number, token: string) =>
+    request<Wrapped<{ ok: boolean; error?: string }>>('POST', `/chatwoot/${id}/test`, { body: { url, accountId, token } }).then((r) => r.data),
   assignGroup: (instanceIds: string[], groupId: string) => request('POST', '/line-groups/assign', { body: { instanceIds, groupId } }),
 
   // Con el token de la línea.

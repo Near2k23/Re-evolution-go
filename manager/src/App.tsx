@@ -9,6 +9,7 @@ import Vincular from './pages/Vincular';
 import Eventos from './pages/Eventos';
 import Grupos from './pages/Grupos';
 import Chats from './pages/Chats';
+import Bots from './pages/Bots';
 
 export default function App() {
   const { session } = useAuth();
@@ -24,6 +25,8 @@ export default function App() {
             <Route path="/chats" element={<Chats />} />
             <Route path="/chats/:lineId" element={<Chats />} />
             <Route path="/chats/:lineId/:chat" element={<Chats />} />
+            <Route path="/bots" element={<Bots />} />
+            <Route path="/bots/:lineId" element={<Bots />} />
             <Route path="/grupos" element={<Grupos />} />
             <Route path="/eventos" element={<Eventos />} />
             <Route path="*" element={<Navigate to="/" replace />} />
