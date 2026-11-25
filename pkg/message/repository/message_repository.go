@@ -19,6 +19,9 @@ type messageRepository struct {
 
 func messageUpdateColumns(message message_model.Message) []string {
 	updates := []string{"timestamp", "status", "source"}
+	if message.InstanceID != "" {
+		updates = append(updates, "instance_id")
+	}
 	if len(message.Referral) > 0 {
 		updates = append(updates, "referral")
 	}

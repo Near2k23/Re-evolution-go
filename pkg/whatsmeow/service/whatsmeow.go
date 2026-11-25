@@ -136,6 +136,10 @@ func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
 		return
 	}
 
+	if message.InstanceID == "" {
+		message.InstanceID = mycli.userID
+	}
+
 	go func() {
 		if err := mycli.messageRepository.InsertMessage(message); err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist message %s: %v", mycli.userID, message.MessageID, err)

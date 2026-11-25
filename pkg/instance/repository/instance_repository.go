@@ -154,7 +154,8 @@ func (i *instanceRepository) Delete(instanceId string) error {
 		}
 
 		// Deleta todas as mensagens associadas à instância
-		if err := tx.Where("source = ?", instanceId).Delete(&message_model.Message{}).Error; err != nil {
+		// (source = instanceId cubre filas antiguas guardadas antes de instance_id)
+		if err := tx.Where("instance_id = ? OR source = ?", instanceId, instanceId).Delete(&message_model.Message{}).Error; err != nil {
 			return fmt.Errorf("erro ao deletar mensagens: %v", err)
 		}
 
