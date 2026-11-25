@@ -1,5 +1,40 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.1 (fork Re-evolution-go, Fase 0)
+
+Basado en upstream 0.7.3. Imagen construida desde este repo (`re-evolution-go`).
+
+### 🐛 Correcciones
+- **Las líneas no se reconectaban tras un reinicio.** `CONNECT_ON_STARTUP` sin
+  definir valía `false`; ahora vale `true` por defecto (se desactiva con
+  `CONNECT_ON_STARTUP=false`).
+- **Seguridad: advanced-settings de otra instancia.** `GET/PUT
+  /instance/:instanceId/advanced-settings` aceptaba cualquier token válido;
+  ahora exige que sea el de esa instancia o la clave global (403 si no).
+- **Mensajes huérfanos al borrar una instancia.** `messages` gana la columna
+  `instance_id` y el borrado la usa.
+- **Eventos que no llegaban.** `PasskeyRequest`, `PasskeyConfirmation` y
+  `PasskeyError` (grupo `QRCODE`) y `OfflineSyncCompleted` (grupo
+  `CONNECTION`) solo llegaban con `ALL`; `ButtonClick` no salía por AMQP global
+  ni `Picture`/`UserAbout` por NATS global. Una sola tabla de grupos para todo.
+- **`.env.example`** usaba `WADEBUG`/`LOGTYPE`, que el código no leía; ahora
+  documenta `DEBUG_ENABLED`/`LOG_TYPE` y el código acepta los nombres viejos
+  como respaldo.
+
+### 🆕 Cambios
+- **Sin licencia.** Se elimina el gate de activación y toda comunicación con el
+  servidor de licencias (`pkg/core`). `GET /license/status` queda como stub
+  `{"status":"active"}` para el manager compilado actual.
+- **WebSocket `/ws`:** acepta el token de una instancia (en `?token=` o en la
+  cabecera `apikey`), varias conexiones por instancia y escrituras seguras
+  entre goroutines.
+- Swagger regenerada; binario compilado fuera del repo.
+
+### ⬆️ Notas de actualización
+- `WADEBUG` y `LOGTYPE` ahora sí tienen efecto: revisa su valor si los tenías
+  definidos.
+- La tabla `messages` gana `instance_id` (AutoMigrate); compatible hacia atrás.
+
 ## v0.7.3
 
 **Docker:** `evoapicloud/evolution-go:0.7.3`
