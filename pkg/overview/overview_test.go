@@ -31,6 +31,7 @@ func TestRutasNoChocanConLasDeInstancia(t *testing.T) {
 	r.GET("/instance/info/:instanceId", noop)
 	r.DELETE("/instance/delete/:instanceId", noop)
 	r.POST("/instance/proxy/:instanceId", noop)
+	r.DELETE("/instance/proxy/:instanceId", noop)
 	r.POST("/instance/forcereconnect/:instanceId", noop)
 	r.GET("/instance/logs/:instanceId", noop)
 	r.GET("/instance/status", noop)

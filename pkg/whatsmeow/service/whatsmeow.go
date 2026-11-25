@@ -1246,13 +1246,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== MESSAGE RECEIVED ===== ID: %s, From: %s, Type: %s, Size: %s", mycli.userID, evt.Info.ID, evt.Info.Chat.String(), evt.Info.Type, messageSize)
 
 		// se readMessages for true ele marca como lida
-		if mycli.Instance.ReadMessages {
+		// (el chat es evt.Info.Chat: con Sender como chat, en los grupos el acuse
+		// iba al chat equivocado; los estados y los mensajes propios se omiten)
+		isStatus := evt.Info.Chat == types.StatusBroadcastJID
+		if mycli.Instance.ReadMessages && !evt.Info.IsFromMe && !isStatus {
 			messageIDs := []string{evt.Info.ID}
-			err := mycli.WAClient.MarkRead(context.Background(), messageIDs, time.Now(), evt.Info.Sender, evt.Info.Sender)
+			err := mycli.WAClient.MarkRead(context.Background(), messageIDs, time.Now(), evt.Info.Chat, evt.Info.Sender)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
 			} else {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
+			}
+		}
+
+		// readStatus: ver automáticamente los estados de los contactos.
+		if mycli.Instance.ReadStatus && isStatus && !evt.Info.IsFromMe {
+			if err := mycli.WAClient.MarkRead(context.Background(), []string{evt.Info.ID}, time.Now(), evt.Info.Chat, evt.Info.Sender); err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-view status: %v", mycli.userID, err)
 			}
 		}
 
@@ -2297,35 +2307,38 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 	if instance.RabbitmqEnable == "enabled" || instance.RabbitmqEnable == "true" {
 		err := w.rabbitmqProducer.Produce(queueName, jsonData, instance.RabbitmqEnable, instance.Id)
 		if err != nil {
+			// Un fallo en una cola no debe impedir el envío a los demás destinos.
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to rabbitmq: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 	}
 
 	if instance.NatsEnable == "enabled" || instance.NatsEnable == "true" {
 		err := w.natsProducer.Produce(queueName, jsonData, instance.NatsEnable, instance.Id)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to nats: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to nats successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to nats successfully", instance.Id)
 	}
 
 	if instance.WebSocketEnable == "enabled" || instance.WebSocketEnable == "true" {
 		err := w.websocketProducer.Produce(queueName, jsonData, instance.Id, instance.Token)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to websocket: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 	} else {
 		// Las conexiones /ws con la clave global (monitor del manager) reciben los
 		// eventos de todas las líneas, aunque la línea no tenga WebSocket activado.
 		_ = w.websocketProducer.Produce(queueName, jsonData, "", instance.Token)
 	}
 
-	if instance.Webhook != "" && instance.Webhook != "disabled" {
+	// El productor envía al webhook de la línea y al global (WEBHOOK_URL), así que
+	// se llama aunque la línea no tenga webhook propio.
+	if (instance.Webhook != "" && instance.Webhook != "disabled") || w.config.WebhookUrl != "" {
 		err := w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)

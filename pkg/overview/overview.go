@@ -12,6 +12,7 @@ import (
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
 	auth_middleware "github.com/evolution-foundation/evolution-go/pkg/middleware"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,6 +39,8 @@ type Line struct {
 	LastEventAt      *time.Time `json:"lastEventAt,omitempty"`
 	Hours            []string   `json:"hours"`
 	GroupID          string     `json:"groupId,omitempty"`
+	WebhookOK24h     int64      `json:"webhookOk24h"`
+	WebhookFailed24h int64      `json:"webhookFailed24h"`
 }
 
 // GroupLister devuelve instancia → grupo.
@@ -59,6 +62,7 @@ func Register(r *gin.Engine, mw auth_middleware.Middleware, instances instance_s
 	admin := r.Group("/instance", mw.AuthAdmin)
 	admin.GET("/overview", h.overview)
 	admin.POST("/reconnect/:instanceId", h.reconnect)
+	admin.GET("/proxy/:instanceId", h.proxy)
 
 	scoped := r.Group("/instance", mw.AuthInstanceOrAdmin)
 	scoped.GET("/history/:instanceId", h.history)
@@ -103,11 +107,17 @@ func (h *handler) overview(c *gin.Context) {
 		members, _ = h.groups()
 	}
 
+	var hookStats map[string]webhooks.Stats
+	if svc := webhooks.Default(); svc != nil {
+		hookStats = svc.StatsByInstance(now.Add(-24 * time.Hour))
+	}
+
 	out := make([]Line, 0, len(list))
 	for _, inst := range list {
 		hasDevice := stored == nil || stored[inst.Jid]
 		l := h.line(inst, recent[inst.Id], last, now, hasDevice)
 		l.GroupID = members[inst.Id]
+		l.WebhookOK24h, l.WebhookFailed24h = hookStats[inst.Id].OK, hookStats[inst.Id].Failed
 		out = append(out, l)
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": out})
@@ -159,6 +169,22 @@ func (h *handler) reconnect(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// proxy devuelve el proxy de la línea sin la contraseña.
+func (h *handler) proxy(c *gin.Context) {
+	p, err := h.instances.GetProxy(c.Param("instanceId"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	if p == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "success", "data": nil})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": gin.H{
+		"protocol": p.Protocol, "host": p.Host, "port": p.Port, "username": p.Username, "hasPassword": p.Password != "",
+	}})
 }
 
 func (h *handler) history(c *gin.Context) {

@@ -10,6 +10,8 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
+	webhooks_handler "github.com/evolution-foundation/evolution-go/pkg/webhooks/handler"
 	"log"
 	"net/http"
 	"os"
@@ -211,6 +213,14 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 	connlog.SetDefault(connRepo)
 
+	// Entrega de webhooks (WEBHOOK_TIMEOUT_MS, WEBHOOK_RETRY_*, WEBHOOK_SECRET, WEBHOOK_LOG_DAYS).
+	webhookSvc := webhooks.New(db, webhooks.SettingsFromEnv())
+	if err := webhookSvc.Migrate(); err != nil {
+		log.Fatal("Failed to migrate webhooks: ", err)
+	}
+	webhookSvc.StartPruner()
+	webhooks.SetDefault(webhookSvc)
+
 	// Chats, contactos y mensajes (CHAT_STORE_*).
 	chatStore := chatstore.New(db, chatstore.ConfigFromEnv())
 	if chatStore.Config().Enabled {
@@ -250,6 +260,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
 	linegroups.Register(r, authMiddleware, groupRepo)
+	webhooks_handler.Register(r, authMiddleware, webhookSvc, instanceService, config.WebhookUrl)
 	chatstore_handler.Register(r, authMiddleware, chatStore, func(id string) *whatsmeow.Client { return clientPointer[id] })
 
 	routes.NewRouter(

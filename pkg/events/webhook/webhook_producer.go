@@ -1,20 +1,17 @@
 package webhook_producer
 
 import (
-	"bytes"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 )
 
+// webhookProducer entrega por pkg/webhooks: cabeceras y firma por línea, URL
+// por evento, reintentos con espera creciente y registro de entregas.
 type webhookProducer struct {
-	url           string
+	url           string // webhook global (WEBHOOK_URL)
 	loggerWrapper *logger_wrapper.LoggerManager
 }
 
@@ -28,67 +25,38 @@ func NewWebhookProducer(
 	}
 }
 
+// Produce envía el evento al webhook global y al de la línea (webhookUrl).
+// userID es el ID de la instancia.
 func (p *webhookProducer) Produce(
 	queueName string,
 	payload []byte,
 	webhookUrl string,
 	userID string,
 ) error {
-	splitQueue := strings.Split(queueName, ".")
-
-	if len(splitQueue) < 2 {
+	if len(strings.Split(queueName, ".")) < 2 {
+		return nil
+	}
+	svc := webhooks.Default()
+	if svc == nil {
+		p.loggerWrapper.GetLogger(userID).LogError("[%s] webhook service not initialized", userID)
 		return nil
 	}
 
-	if p.url != "" {
-		go p.sendWebhookWithRetry(p.url, payload, 5, 30*time.Second, userID)
-	}
-	if webhookUrl != "" {
-		go p.sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second, userID)
-	}
-
-	return nil
-}
-
-func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
-	for i := 0; i < maxRetries; i++ {
-		err, responseBody, statusCode := p.sendWebhook(url, body, userID)
-		if err == nil {
-			p.loggerWrapper.GetLogger(userID).LogInfo("[%s] webhook sent successfully - url: %s, status: %d, response: %s", userID, url, statusCode, string(responseBody))
-			return
+	send := func(t webhooks.Target) {
+		res := svc.Deliver(t, payload, false)
+		if res.OK {
+			p.loggerWrapper.GetLogger(userID).LogInfo("[%s] webhook sent - url: %s, status: %d, attempts: %d", userID, res.URL, res.StatusCode, res.Attempts)
+		} else {
+			p.loggerWrapper.GetLogger(userID).LogError("[%s] webhook failed after %d attempts - url: %s, error: %s", userID, res.Attempts, res.URL, res.Error)
 		}
-		p.loggerWrapper.GetLogger(userID).LogWarn("[%s] webhook failed - url: %s, attempt: %d, error: %v", userID, url, i+1, err)
-
-		time.Sleep(retryInterval)
 	}
-	p.loggerWrapper.GetLogger(userID).LogError("[%s] webhook failed after maximum retries - url: %s", userID, url)
-}
-
-func (p *webhookProducer) sendWebhook(url string, body []byte, userID string) (error, []byte, int) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-	if err != nil {
-		return err, nil, 0
+	if p.url != "" {
+		go send(svc.GlobalTarget(userID, p.url))
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err, nil, 0
+	if webhookUrl != "" && webhookUrl != "disabled" {
+		go send(svc.TargetFor(userID, webhookUrl))
 	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("erro ao ler resposta: %v", err), nil, 0
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return errors.New("received non-2xx response: " + resp.Status), responseBody, resp.StatusCode
-	}
-
-	return nil, responseBody, resp.StatusCode
+	return nil
 }
 
 // CreateGlobalQueues não faz nada para webhook producer
