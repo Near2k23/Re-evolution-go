@@ -213,9 +213,15 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	}
 
 	// Remover das estruturas
+	ClientMapsMu.Lock()
 	delete(w.clientPointer, instanceId)
+	ClientMapsMu.Unlock()
+	ClientMapsMu.Lock()
 	delete(w.myClientPointer, instanceId)
+	ClientMapsMu.Unlock()
+	ClientMapsMu.Lock()
 	delete(w.killChannel, instanceId)
+	ClientMapsMu.Unlock()
 
 	// Limpar cache de userInfo para esta instância
 	if instance, err := w.instanceRepository.GetInstanceByID(instanceId); err == nil {
@@ -306,6 +312,13 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 
 	return nil
 }
+
+// ClientMapsMu serializa las escrituras en los mapas compartidos de clientes
+// (clientPointer, myClientPointer, killChannel). Son mapas de Go sin
+// protección que comparten varios servicios; al arrancar, ConnectOnStartup
+// levanta varias líneas a la vez y dos escrituras simultáneas tumbaban el
+// proceso con «concurrent map writes».
+var ClientMapsMu sync.Mutex
 
 // Shared by every StartClient: a container per call opens a pool that is never
 // closed. Only success is memoized, so a failed creation is retried next call.
@@ -482,7 +495,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	clientLog := waLog.Stdout("Client", minLevel, true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
+	ClientMapsMu.Lock()
 	w.clientPointer[cd.Instance.Id] = client
+	ClientMapsMu.Unlock()
 
 	if cd.IsProxy {
 		var proxyConfig ProxyConfig
@@ -570,7 +585,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
 
 	// Armazena o MyClient no map para permitir atualizações posteriores
+	ClientMapsMu.Lock()
 	w.myClientPointer[cd.Instance.Id] = mycli
+	ClientMapsMu.Unlock()
 
 	if client.Store.ID != nil {
 		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
@@ -648,8 +665,12 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
 			client.Disconnect()
 
+			ClientMapsMu.Lock()
 			delete(w.clientPointer, cd.Instance.Id)
+			ClientMapsMu.Unlock()
+			ClientMapsMu.Lock()
 			delete(w.myClientPointer, cd.Instance.Id)
+			ClientMapsMu.Unlock()
 
 			// Limpar cache de userInfo para esta instância
 			w.userInfoCache.Delete(cd.Instance.Token)
@@ -2376,7 +2397,9 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		}
 	}
 
+	ClientMapsMu.Lock()
 	w.killChannel[instance.Id] = make(chan bool)
+	ClientMapsMu.Unlock()
 
 	clientData := &ClientData{
 		Instance:      instance,
@@ -2431,6 +2454,8 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 		if err != nil {
 			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error starting client: %s", clientName, err)
 		}
+		// Escalonar el arranque: evita la ráfaga de conexiones simultáneas.
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -2694,13 +2719,17 @@ func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) er
 
 	// Limpar myClientPointer se existir
 	if _, exists := w.myClientPointer[instanceId]; exists {
+		ClientMapsMu.Lock()
 		delete(w.myClientPointer, instanceId)
+		ClientMapsMu.Unlock()
 		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] MyClient pointer cleared", instanceId)
 	}
 
 	// Limpar clientPointer se existir
 	if _, exists := w.clientPointer[instanceId]; exists {
+		ClientMapsMu.Lock()
 		delete(w.clientPointer, instanceId)
+		ClientMapsMu.Unlock()
 		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client pointer cleared", instanceId)
 	}
 
@@ -2713,7 +2742,9 @@ func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) er
 			// Canal pode estar bloqueado, apenas fecha
 		}
 		close(killChan)
+		ClientMapsMu.Lock()
 		delete(w.killChannel, instanceId)
+		ClientMapsMu.Unlock()
 		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill channel cleared", instanceId)
 	}
 

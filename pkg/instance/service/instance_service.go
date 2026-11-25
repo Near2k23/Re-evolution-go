@@ -259,7 +259,9 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	if !isInstanceRunning {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Starting new client instance", instance.Id)
 
+		whatsmeow_service.ClientMapsMu.Lock()
 		i.killChannel[instance.Id] = make(chan bool)
+		whatsmeow_service.ClientMapsMu.Unlock()
 
 		clientData := &whatsmeow_service.ClientData{
 			Instance:      instance,
@@ -358,8 +360,12 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		case <-time.After(5 * time.Second):
 		}
 
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.clientPointer, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.killChannel, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
 
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Logout successful", instance.Id)
 		return instance, nil
@@ -373,8 +379,12 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		case <-time.After(5 * time.Second):
 		}
 
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.clientPointer, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.killChannel, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
 
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
 		return instance, nil
@@ -596,10 +606,14 @@ func (i instances) Delete(id string) error {
 	}
 
 	// Limpar todos os recursos da instância antes de deletar
+	whatsmeow_service.ClientMapsMu.Lock()
 	delete(i.clientPointer, instance.Id)
+	whatsmeow_service.ClientMapsMu.Unlock()
 	if i.killChannel[instance.Id] != nil {
 		close(i.killChannel[instance.Id])
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.killChannel, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
 	}
 
 	// Limpar cache via whatsmeow service
@@ -714,7 +728,9 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 
 	subscribedEvents := strings.Split(instance.Events, ",")
 
+	whatsmeow_service.ClientMapsMu.Lock()
 	i.killChannel[instance.Id] = make(chan bool)
+	whatsmeow_service.ClientMapsMu.Unlock()
 
 	clientData := &whatsmeow_service.ClientData{
 		Instance:      instance,
@@ -745,8 +761,12 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 		case <-time.After(5 * time.Second):
 		}
 
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.clientPointer, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
+		whatsmeow_service.ClientMapsMu.Lock()
 		delete(i.killChannel, instance.Id)
+		whatsmeow_service.ClientMapsMu.Unlock()
 	}
 
 	go i.whatsmeowService.StartClient(clientData)
