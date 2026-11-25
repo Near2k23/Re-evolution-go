@@ -7,3 +7,16 @@ coverage.*
 .idea/
 .vscode/
 .DS_Store
+
+# Binario compilado
+/evolution-go
+/server
+
+# Herramientas locales y temporales (Claude, editores, scratch)
+.claude/
+CLAUDE.local.md
+.scratchpad/
+scratchpad/
+tmp/
+*.tmp
+dbdata/
