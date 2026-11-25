@@ -245,14 +245,33 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		go whatsmeowService.ConnectOnStartup(config.ClientName)
 	}
 
+	// /ws acepta la clave global (todas las instancias, o una con ?instanceId=)
+	// o el token de una instancia (solo sus eventos). El token puede ir en
+	// ?token= o en la cabecera apikey.
 	r.GET("/ws", func(c *gin.Context) {
 		token := c.Query("token")
+		if token == "" {
+			token = c.GetHeader("apikey")
+		}
 		instanceId := c.Query("instanceId")
 
-		if token != config.GlobalApiKey {
-			logger.LogError("Token inválido: %s", token)
+		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
 			return
+		}
+
+		if config.GlobalApiKey == "" || token != config.GlobalApiKey {
+			instance, err := instanceService.GetInstanceByToken(token)
+			if err != nil || instance == nil {
+				logger.LogError("WebSocket: token inválido")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+				return
+			}
+			if instanceId != "" && instanceId != instance.Id {
+				c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+				return
+			}
+			instanceId = instance.Id
 		}
 
 		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)

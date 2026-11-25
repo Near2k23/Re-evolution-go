@@ -4,102 +4,128 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/gomessguii/logger"
 	"github.com/gorilla/websocket"
 )
 
+const writeTimeout = 10 * time.Second
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		logger.LogInfo("Verificando origem da conexão WebSocket")
 		return true
 	},
 }
 
+// wsClient envuelve una conexión con su propio mutex de escritura: gorilla no
+// admite escrituras concurrentes en la misma conexión y Produce se llama desde
+// varias goroutines a la vez.
+type wsClient struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+}
+
+func (c *wsClient) writeJSON(v interface{}) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	return c.conn.WriteJSON(v)
+}
+
 type websocketProducer struct {
-	clients       map[string]*websocket.Conn // conexões específicas por instância
-	broadcast     []*websocket.Conn          // conexões que recebem todos os eventos
+	clients       map[string]map[*wsClient]struct{} // conexiones por instancia (varias permitidas)
+	broadcast     map[*wsClient]struct{}            // conexiones que reciben todos los eventos
 	clientsMux    sync.RWMutex
 	loggerWrapper *logger_wrapper.LoggerManager
 }
 
 func NewWebsocketProducer(loggerWrapper *logger_wrapper.LoggerManager) *websocketProducer {
 	return &websocketProducer{
-		clients:       make(map[string]*websocket.Conn),
-		broadcast:     make([]*websocket.Conn, 0),
-		clientsMux:    sync.RWMutex{},
+		clients:       make(map[string]map[*wsClient]struct{}),
+		broadcast:     make(map[*wsClient]struct{}),
 		loggerWrapper: loggerWrapper,
 	}
 }
 
-// ServeWs lida com as requisições de upgrade para websocket
+// ServeWs hace el upgrade a websocket. Con instanceId vacío la conexión recibe
+// los eventos de todas las instancias; si no, solo los de esa instancia.
 func ServeWs(w http.ResponseWriter, r *http.Request, instanceId string, producer *websocketProducer) {
-	logger.LogInfo("Iniciando upgrade da conexão WebSocket")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.LogError("Erro ao fazer upgrade da conexão websocket: %v", err)
 		return
 	}
 
-	logger.LogInfo("Conexão WebSocket estabelecida com sucesso")
+	client := &wsClient{conn: conn}
+	producer.add(instanceId, client)
 
-	if instanceId == "" {
-		producer.AddBroadcastClient(conn)
-	} else {
-		producer.AddClient(instanceId, conn)
-	}
-
-	// Goroutine para limpar conexão quando fechada
+	// Lee hasta que el cliente cierre para liberar la conexión.
 	go func() {
+		defer func() {
+			producer.remove(instanceId, client)
+			conn.Close()
+		}()
 		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				if instanceId == "" {
-					producer.RemoveBroadcastClient(conn)
-				} else {
-					producer.RemoveClient(instanceId)
-				}
-				conn.Close()
-				break
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
 			}
 		}
 	}()
 }
 
-func (p *websocketProducer) AddBroadcastClient(conn *websocket.Conn) {
+func (p *websocketProducer) add(instanceID string, client *wsClient) {
 	p.clientsMux.Lock()
 	defer p.clientsMux.Unlock()
-	p.broadcast = append(p.broadcast, conn)
-	logger.LogInfo("Cliente broadcast websocket adicionado")
+
+	if instanceID == "" {
+		p.broadcast[client] = struct{}{}
+		logger.LogInfo("Cliente broadcast websocket adicionado")
+		return
+	}
+
+	if p.clients[instanceID] == nil {
+		p.clients[instanceID] = make(map[*wsClient]struct{})
+	}
+	p.clients[instanceID][client] = struct{}{}
+	p.loggerWrapper.GetLogger(instanceID).LogInfo("Cliente websocket adicionado para instância: %s (%d conexões)", instanceID, len(p.clients[instanceID]))
 }
 
-func (p *websocketProducer) RemoveBroadcastClient(conn *websocket.Conn) {
+func (p *websocketProducer) remove(instanceID string, client *wsClient) {
 	p.clientsMux.Lock()
 	defer p.clientsMux.Unlock()
-	for i, c := range p.broadcast {
-		if c == conn {
-			p.broadcast = append(p.broadcast[:i], p.broadcast[i+1:]...)
-			break
+
+	if instanceID == "" {
+		delete(p.broadcast, client)
+		logger.LogInfo("Cliente broadcast websocket removido")
+		return
+	}
+
+	if set, ok := p.clients[instanceID]; ok {
+		delete(set, client)
+		if len(set) == 0 {
+			delete(p.clients, instanceID)
 		}
 	}
-	logger.LogInfo("Cliente broadcast websocket removido")
-}
-
-func (p *websocketProducer) AddClient(instanceID string, conn *websocket.Conn) {
-	p.clientsMux.Lock()
-	defer p.clientsMux.Unlock()
-	p.clients[instanceID] = conn
-	p.loggerWrapper.GetLogger(instanceID).LogInfo("Cliente websocket adicionado para instância: %s", instanceID)
-}
-
-func (p *websocketProducer) RemoveClient(instanceID string) {
-	p.clientsMux.Lock()
-	defer p.clientsMux.Unlock()
-	delete(p.clients, instanceID)
 	p.loggerWrapper.GetLogger(instanceID).LogInfo("Cliente websocket removido para instância: %s", instanceID)
+}
+
+// snapshot copia los destinatarios para no escribir con el lock tomado.
+func (p *websocketProducer) snapshot(instanceID string) []*wsClient {
+	p.clientsMux.RLock()
+	defer p.clientsMux.RUnlock()
+
+	targets := make([]*wsClient, 0, len(p.clients[instanceID])+len(p.broadcast))
+	for c := range p.clients[instanceID] {
+		targets = append(targets, c)
+	}
+	for c := range p.broadcast {
+		targets = append(targets, c)
+	}
+	return targets
 }
 
 func (p *websocketProducer) Produce(queueName string, payload []byte, instanceID string, _ string) error {
@@ -108,26 +134,11 @@ func (p *websocketProducer) Produce(queueName string, payload []byte, instanceID
 		"payload": string(payload),
 	}
 
-	p.clientsMux.RLock()
-	defer p.clientsMux.RUnlock()
-
-	// Envia para cliente específico da instância
-	if client, exists := p.clients[instanceID]; exists {
-		err := client.WriteJSON(message)
-		if err != nil {
+	for _, client := range p.snapshot(instanceID) {
+		if err := client.writeJSON(message); err != nil {
 			p.loggerWrapper.GetLogger(instanceID).LogError("Erro ao enviar mensagem websocket para %s: %v", instanceID, err)
-			// Não remove o cliente aqui pois estamos com o RLock
-			return err
-		}
-		p.loggerWrapper.GetLogger(instanceID).LogInfo("Mensagem websocket enviada com sucesso para instância %s na fila %s", instanceID, queueName)
-	}
-
-	// Envia para todos os clientes broadcast
-	for _, conn := range p.broadcast {
-		err := conn.WriteJSON(message)
-		if err != nil {
-			p.loggerWrapper.GetLogger(instanceID).LogError("Erro ao enviar mensagem broadcast websocket: %v", err)
-			continue
+			// Una conexión rota se cierra; su goroutine de lectura la quita del mapa.
+			client.conn.Close()
 		}
 	}
 
