@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/chatbot"
 	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
+	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"image/png"
 	"io"
@@ -952,6 +954,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 	connlog.Observe(userID, rawEvt)
 	chatstore.Observe(userID, mycli.WAClient, rawEvt)
+	chatbot.Observe(userID, rawEvt)
+	chatwoot.Observe(userID, rawEvt)
 
 	switch evt := rawEvt.(type) {
 	case *events.QR:

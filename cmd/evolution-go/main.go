@@ -5,8 +5,13 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/botsender"
+	"github.com/evolution-foundation/evolution-go/pkg/chatbot"
+	chatbot_handler "github.com/evolution-foundation/evolution-go/pkg/chatbot/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
 	chatstore_handler "github.com/evolution-foundation/evolution-go/pkg/chatstore/handler"
+	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
+	chatwoot_handler "github.com/evolution-foundation/evolution-go/pkg/chatwoot/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
@@ -231,6 +236,20 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 	chatstore.SetDefault(chatStore)
 
+	// Bots y Chatwoot: responden por el servicio de envío.
+	sender := botsender.New(sendMessageService, instanceService)
+	clientOf := func(id string) *whatsmeow.Client { return clientPointer[id] }
+	botEngine := chatbot.NewEngine(db, sender, clientOf)
+	if err := botEngine.Migrate(); err != nil {
+		log.Fatal("Failed to migrate chatbots: ", err)
+	}
+	chatbot.SetDefault(botEngine)
+	chatwootSvc := chatwoot.New(db, sender, clientOf)
+	if err := chatwootSvc.Migrate(); err != nil {
+		log.Fatal("Failed to migrate chatwoot: ", err)
+	}
+	chatwoot.SetDefault(chatwootSvc)
+
 	groupRepo := linegroups.NewRepository(db)
 	if err := groupRepo.Migrate(); err != nil {
 		log.Fatal("Failed to migrate line_groups: ", err)
@@ -261,6 +280,8 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
 	linegroups.Register(r, authMiddleware, groupRepo)
 	webhooks_handler.Register(r, authMiddleware, webhookSvc, instanceService, config.WebhookUrl)
+	chatbot_handler.Register(r, authMiddleware, db, botEngine)
+	chatwoot_handler.Register(r, authMiddleware, chatwootSvc)
 	chatstore_handler.Register(r, authMiddleware, chatStore, func(id string) *whatsmeow.Client { return clientPointer[id] })
 
 	routes.NewRouter(
