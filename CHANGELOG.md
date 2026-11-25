@@ -1,5 +1,21 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.7 (fork Re-evolution-go, Fase 3: bots y Chatwoot)
+
+### 🆕 Nuevo
+- **Bots por línea** (`/bots/:id`): HTTP propio, n8n, OpenAI (con
+  transcripción de audio), Typebot, Dify y Flowise. Disparadores por palabra
+  clave o cualquier mensaje, prioridad, sesiones con pausa, cierre y
+  expiración, «escribiendo…», agrupación de mensajes seguidos, división de
+  respuestas largas, chats ignorados y respuesta en grupos opcional.
+- **Chatwoot bidireccional** (`/chatwoot/:id`): crea el buzón API, refleja
+  chats y adjuntos, y envía por WhatsApp lo que responden los agentes.
+- **Manager:** página Bots con editor, sesiones y Chatwoot, en los 10 idiomas.
+
+### ⬆️ Notas de actualización
+- Tablas nuevas `chatbots`, `chatbot_sessions`, `chatwoot_configs` y
+  `chatwoot_links` (AutoMigrate). Sin variables nuevas.
+
 ## v0.7.3-re.6 (fork Re-evolution-go, Fase 2: webhooks y ajustes)
 
 ### 🆕 Nuevo

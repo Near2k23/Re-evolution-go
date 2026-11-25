@@ -176,6 +176,44 @@ o por la API, con la clave global o el token de la línea:
 Los mensajes se borran pasados `CHAT_STORE_RETENTION_DAYS` días (90 por
 defecto; 0 = nunca).
 
+## Bots
+
+Cada línea puede tener varios bots (`/bots/:instanceId`, con la clave global
+o el token de la línea; también desde el manager, en **Bots**). En cada chat
+habla un solo bot a la vez: el primero, por prioridad, cuyo disparador
+coincide (cualquier mensaje o una palabra clave con `contains`, `equals`,
+`startsWith`, `endsWith` o `regex`). A partir de ahí la sesión sigue con ese
+bot hasta que termina, expira (`expireMinutes`), se escribe la palabra de
+cierre (`keywordFinish`) o se pausa.
+
+| Tipo | `config` | Qué hace |
+|---|---|---|
+| `http` | `url`, `apiKey` | POST JSON con `instanceId`, `remoteJid`, `pushName`, `message`, `messageType`, `messageId`, `fromMe`, `isGroup`, `sessionId`, `botId`. Responde con `message`, `output`, `reply`, `text` o `messages[]` (texto o `{mediaUrl, mediaType}`); `"end": true` cierra la sesión. |
+| `n8n` | `url`, `username`, `password` | Igual, contra un nodo Webhook de n8n («Respond to Webhook» con `output`). |
+| `openai` | `apiKey`, `model`, `systemPrompt`, `historyLimit`, `baseUrl`, `transcribe` | Chat Completions con el historial reciente; transcribe notas de voz con Whisper. `baseUrl` permite APIs compatibles. |
+| `typebot` | `url`, `publicId` | startChat/continueChat; los botones llegan como opciones numeradas. |
+| `dify` | `apiUrl`, `apiKey`, `botType` | `chat`, `agent`, `workflow` o `completion`. |
+| `flowise` | `url`, `apiKey` | URL de predicción de un chatflow. |
+
+Opciones comunes: `allowGroups` (apagado por defecto), `stopOnFromMe` (pausa
+el bot si alguien responde desde el teléfono), `listenFromMe`, `delayMs`
+(«escribiendo…»), `debounceMs` (junta mensajes seguidos), `splitMessages`,
+`unknownMessage` e `ignoreJids`. Las claves se devuelven enmascaradas.
+
+Sesiones: `GET /bots/:instanceId/sessions` y
+`POST /bots/:instanceId/sessions/:sessionId {"status":"paused|open|closed"}`.
+
+## Chatwoot
+
+`GET/PUT /chatwoot/:instanceId` con `url`, `accountId` y `token` (de un
+usuario o agent bot de Chatwoot). Al guardar se crea un buzón de tipo API
+cuyo webhook apunta a `/chatwoot/webhook/:instanceId` de este servidor. Cada
+chat de WhatsApp se vuelve una conversación (con adjuntos) y lo que responde
+el agente sale por la línea. Opciones: `signMessages`, `reopenConversation`,
+`conversationPending` e `ignoreGroups`. `POST /chatwoot/:instanceId/test`
+comprueba la conexión. Detrás de un proxy, el servidor usa
+`X-Forwarded-Proto`/`X-Forwarded-Host` para armar la URL del webhook.
+
 ---
 
 ## API Documentation
