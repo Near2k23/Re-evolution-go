@@ -1,5 +1,12 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.5 (fork Re-evolution-go)
+
+### 🐛 Correcciones
+- **Caída al arrancar con varias líneas** («fatal error: concurrent map
+  writes»): las escrituras en los mapas compartidos de clientes quedan
+  serializadas y la reconexión al arrancar se escalona 500 ms por línea.
+
 ## v0.7.3-re.4 (fork Re-evolution-go, Fase 1: historial de chats)
 
 ### 🆕 Nuevo
