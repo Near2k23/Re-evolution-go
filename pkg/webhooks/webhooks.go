@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evolution-foundation/evolution-go/pkg/evoformat"
 	"github.com/gomessguii/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -42,11 +43,18 @@ type Config struct {
 	InstanceID string            `json:"-" gorm:"primaryKey;size:64"`
 	Headers    map[string]string `json:"headers" gorm:"serializer:json;type:jsonb"`
 	ByEvents   bool              `json:"byEvents"`
+	Format     string            `json:"format" gorm:"size:24"` // "" (Evolution GO) o "evolution-api"
 	Secret     string            `json:"-"`
 	UpdatedAt  time.Time         `json:"updatedAt"`
 }
 
 func (Config) TableName() string { return "webhook_configs" }
+
+// FormatEvolutionAPI envía los eventos con los nombres y la forma de Evolution API v2.
+const FormatEvolutionAPI = "evolution-api"
+
+// ValidFormat indica si el formato es conocido.
+func ValidFormat(f string) bool { return f == "" || f == FormatEvolutionAPI }
 
 // Delivery es el resultado final de una entrega.
 type Delivery struct {
@@ -71,6 +79,8 @@ type Settings struct {
 	MaxAttempts  int
 	BaseDelay    time.Duration
 	GlobalSecret string
+	GlobalFormat string // WEBHOOK_FORMAT
+	ServerURL    string // SERVER_URL, va en el sobre de Evolution API
 	LogDays      int
 }
 
@@ -87,6 +97,8 @@ func SettingsFromEnv() Settings {
 		MaxAttempts:  envInt("WEBHOOK_RETRY_MAX", 8),
 		BaseDelay:    time.Duration(envInt("WEBHOOK_RETRY_BASE_MS", 1000)) * time.Millisecond,
 		GlobalSecret: os.Getenv("WEBHOOK_SECRET"),
+		GlobalFormat: strings.TrimSpace(os.Getenv("WEBHOOK_FORMAT")),
+		ServerURL:    strings.TrimRight(os.Getenv("SERVER_URL"), "/"),
 		LogDays:      envInt("WEBHOOK_LOG_DAYS", 3),
 	}
 	if s.MaxAttempts < 1 {
@@ -104,6 +116,7 @@ type Service struct {
 	settings Settings
 	client   *http.Client
 	cache    sync.Map // instanceID → *Config (nil = sin configuración)
+	jids     sync.Map // instanceID → JID de la línea (para el sobre v2)
 	sleep    func(time.Duration)
 }
 
@@ -188,6 +201,17 @@ func (s *Service) Save(instanceID string, headers map[string]string, byEvents bo
 		return nil, err
 	}
 	return s.Get(instanceID), nil
+}
+
+// SetFormat cambia el formato de los eventos de una línea.
+func (s *Service) SetFormat(instanceID, format string) error {
+	if !ValidFormat(format) {
+		return fmt.Errorf("unknown format %q", format)
+	}
+	c := Config{InstanceID: instanceID, Headers: map[string]string{}, Format: format, UpdatedAt: time.Now()}
+	err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "instance_id"}}, DoUpdates: clause.AssignmentColumns([]string{"format", "updated_at"})}).Create(&c).Error
+	s.cache.Delete(instanceID)
+	return err
 }
 
 // NewSecret genera un secreto aleatorio.
@@ -300,20 +324,21 @@ type Target struct {
 	Headers    map[string]string
 	Secret     string
 	ByEvents   bool
+	Format     string
 }
 
 // TargetFor arma el destino de la línea con su configuración.
 func (s *Service) TargetFor(instanceID, url string) Target {
 	t := Target{InstanceID: instanceID, URL: url}
 	if c := s.Get(instanceID); c != nil {
-		t.Headers, t.Secret, t.ByEvents = c.Headers, c.Secret, c.ByEvents
+		t.Headers, t.Secret, t.ByEvents, t.Format = c.Headers, c.Secret, c.ByEvents, c.Format
 	}
 	return t
 }
 
 // GlobalTarget es el webhook global (WEBHOOK_URL).
 func (s *Service) GlobalTarget(instanceID, url string) Target {
-	return Target{InstanceID: instanceID, URL: url, Secret: s.settings.GlobalSecret}
+	return Target{InstanceID: instanceID, URL: url, Secret: s.settings.GlobalSecret, Format: s.settings.GlobalFormat}
 }
 
 // Result es el resultado de una entrega.
@@ -326,12 +351,49 @@ type Result struct {
 	URL        string `json:"url"`
 }
 
-// Deliver envía con reintentos y guarda el resultado. Bloquea: llamarla en una goroutine.
+// Deliver envía con reintentos y guarda el resultado. Bloquea: llamarla en una
+// goroutine. Con formato Evolution API el evento se traduce antes (puede dar
+// varios envíos, o ninguno si no tiene equivalente).
 func (s *Service) Deliver(t Target, payload []byte, test bool) Result {
-	event := EventOf(payload)
+	if t.Format != FormatEvolutionAPI || test {
+		event := EventOf(payload)
+		path := ""
+		if event != "" {
+			path = Kebab(event)
+		}
+		return s.deliver(t, payload, event, path, test)
+	}
+	conv := evoformat.Convert(payload, evoformat.Meta{ServerURL: s.settings.ServerURL, Sender: s.jidOf(t.InstanceID), Destination: t.URL})
+	res := Result{OK: true, URL: t.URL}
+	for _, c := range conv {
+		res = s.deliver(t, c.Payload, c.Event, evoformat.Path(c.Event), false)
+	}
+	return res
+}
+
+// jidOf devuelve el JID de la línea (sin dispositivo), con caché.
+func (s *Service) jidOf(instanceID string) string {
+	if v, ok := s.jids.Load(instanceID); ok && v.(string) != "" {
+		return v.(string)
+	}
+	if s.db == nil {
+		return ""
+	}
+	var jid string
+	s.db.Table("instances").Select("jid").Where("id = ?", instanceID).Scan(&jid)
+	if i := strings.Index(jid, ":"); i > 0 {
+		if at := strings.Index(jid, "@"); at > i {
+			jid = jid[:i] + jid[at:]
+		}
+	}
+	s.jids.Store(instanceID, jid)
+	return jid
+}
+
+func (s *Service) deliver(t Target, payload []byte, event, path string, test bool) Result {
 	url := t.URL
-	if t.ByEvents && event != "" {
-		url = strings.TrimRight(url, "/") + "/" + Kebab(event)
+	if t.ByEvents && path != "" {
+		url = strings.TrimRight(url, "/") + "/" + path
 	}
 	attempts := s.settings.MaxAttempts
 	if test {
