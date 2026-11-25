@@ -33,6 +33,7 @@ type Instance struct {
 	ReadMessages  bool   `json:"readMessages" gorm:"default:false"`
 	IgnoreGroups  bool   `json:"ignoreGroups" gorm:"default:false"`
 	IgnoreStatus  bool   `json:"ignoreStatus" gorm:"default:false"`
+	ReadStatus    bool   `json:"readStatus" gorm:"default:false"`
 }
 
 // AdvancedSettings representa as configurações avançadas de uma instância
@@ -43,6 +44,7 @@ type AdvancedSettings struct {
 	ReadMessages  bool   `json:"readMessages"`
 	IgnoreGroups  bool   `json:"ignoreGroups"`
 	IgnoreStatus  bool   `json:"ignoreStatus"`
+	ReadStatus    bool   `json:"readStatus"`
 }
 
 func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {

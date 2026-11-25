@@ -171,8 +171,8 @@ func (i *instanceRepository) Delete(instanceId string) error {
 			return fmt.Errorf("erro ao deletar grupo da linha: %v", err)
 		}
 
-		// Chats, contactos y mensajes guardados (tablas de pkg/chatstore).
-		for _, table := range []string{"chat_store_messages", "chat_store_chats", "chat_store_contacts"} {
+		// Chats, contactos y mensajes guardados (pkg/chatstore) y webhooks (pkg/webhooks).
+		for _, table := range []string{"chat_store_messages", "chat_store_chats", "chat_store_contacts", "webhook_configs", "webhook_deliveries"} {
 			if err := tx.Exec("DELETE FROM "+table+" WHERE instance_id = ?", instanceId).Error; err != nil {
 				return fmt.Errorf("erro ao deletar %s: %v", table, err)
 			}
@@ -194,7 +194,7 @@ func (i *instanceRepository) GetAdvancedSettings(instanceId string) (*instance_m
 	}
 
 	var instance instance_model.Instance
-	err := i.db.Select("always_online, reject_call, msg_reject_call, read_messages, ignore_groups, ignore_status").
+	err := i.db.Select("always_online, reject_call, msg_reject_call, read_messages, ignore_groups, ignore_status, read_status").
 		Where("id = ?", instanceId).First(&instance).Error
 	if err != nil {
 		return nil, err
@@ -207,6 +207,7 @@ func (i *instanceRepository) GetAdvancedSettings(instanceId string) (*instance_m
 		ReadMessages:  instance.ReadMessages,
 		IgnoreGroups:  instance.IgnoreGroups,
 		IgnoreStatus:  instance.IgnoreStatus,
+		ReadStatus:    instance.ReadStatus,
 	}
 
 	return settings, nil
@@ -225,6 +226,7 @@ func (i *instanceRepository) UpdateAdvancedSettings(instanceId string, settings 
 		"read_messages":   settings.ReadMessages,
 		"ignore_groups":   settings.IgnoreGroups,
 		"ignore_status":   settings.IgnoreStatus,
+		"read_status":     settings.ReadStatus,
 	}
 
 	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error

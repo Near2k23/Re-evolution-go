@@ -46,6 +46,7 @@ type InstanceService interface {
 	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
 	UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error
 	LiveState(instanceId string) (exists, connected, loggedIn bool)
+	GetProxy(instanceId string) (*ProxyConfig, error)
 }
 
 type instances struct {
@@ -197,6 +198,7 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		instance.ReadMessages = data.AdvancedSettings.ReadMessages
 		instance.IgnoreGroups = data.AdvancedSettings.IgnoreGroups
 		instance.IgnoreStatus = data.AdvancedSettings.IgnoreStatus
+		instance.ReadStatus = data.AdvancedSettings.ReadStatus
 	}
 
 	createdInstance, err := i.instanceRepository.Create(instance)
@@ -929,6 +931,25 @@ func (i instances) UpdateAdvancedSettings(instanceId string, settings *instance_
 
 	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated successfully", instanceId)
 	return nil
+}
+
+// GetProxy devuelve el proxy guardado de la instancia (nil si no tiene).
+func (i instances) GetProxy(instanceId string) (*ProxyConfig, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	if instance.Proxy == "" {
+		return nil, nil
+	}
+	var p ProxyConfig
+	if err := json.Unmarshal([]byte(instance.Proxy), &p); err != nil {
+		return nil, err
+	}
+	if p.Host == "" {
+		return nil, nil
+	}
+	return &p, nil
 }
 
 // LiveState informa si hay cliente de whatsmeow en memoria para la instancia,
