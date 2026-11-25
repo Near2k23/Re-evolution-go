@@ -12,6 +12,7 @@ import (
 	chatstore_handler "github.com/evolution-foundation/evolution-go/pkg/chatstore/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	chatwoot_handler "github.com/evolution-foundation/evolution-go/pkg/chatwoot/handler"
+	"github.com/evolution-foundation/evolution-go/pkg/compat"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
@@ -93,7 +94,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) http.Handler {
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
 
@@ -336,7 +337,21 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)
 	})
 
-	return r
+	// Rutas con la forma de Evolution API v2 (/message/sendText/:instanceName…)
+	// delante del router Go; el resto de peticiones pasan sin cambios.
+	var store *chatstore.Store
+	if chatStore.Config().Enabled {
+		store = chatStore
+	}
+	return compat.New(compat.Options{
+		DB: db, GlobalKey: config.GlobalApiKey, ClientName: config.ClientName, Store: store, Webhooks: webhookSvc,
+		Client: func(id string) *whatsmeow.Client {
+			whatsmeow_service.ClientMapsMu.Lock()
+			defer whatsmeow_service.ClientMapsMu.Unlock()
+			return clientPointer[id]
+		},
+		Reload: whatsmeowService.UpdateInstanceSettings,
+	}, r)
 }
 
 func migrate(db *gorm.DB) {
