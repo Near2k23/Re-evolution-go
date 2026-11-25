@@ -226,7 +226,7 @@ func (s *Server) sendContact(c *gin.Context) {
 		v2Error(c, http.StatusBadRequest, "contact is required")
 		return
 	}
-	var last M
+	var cards []M
 	for _, it := range list {
 		ct, _ := it.(map[string]interface{})
 		if ct == nil {
@@ -236,18 +236,26 @@ func (s *Server) sendContact(c *gin.Context) {
 		if phone == "" {
 			phone = str(ct, "wuid")
 		}
-		out := common(b, i)
-		out["vcard"] = M{"fullName": str(ct, "fullName"), "organization": str(ct, "organization"), "phone": nonDigit.ReplaceAllString(strings.Split(phone, "@")[0], "")}
-		r := s.call(http.MethodPost, "/send/contact", i.Token, out)
-		if !r.ok() {
-			fail(c, r)
-			return
-		}
-		var data M
-		_ = r.decode(&data)
-		last = evoformat.FromSend(data, i.Id)
+		cards = append(cards, M{"fullName": str(ct, "fullName"), "organization": str(ct, "organization"),
+			"phone": nonDigit.ReplaceAllString(strings.Split(phone, "@")[0], ""), "email": str(ct, "email"), "url": str(ct, "url")})
 	}
-	c.JSON(http.StatusCreated, last)
+	if len(cards) == 0 {
+		v2Error(c, http.StatusBadRequest, "contact is required")
+		return
+	}
+	out := common(b, i)
+	out["vcard"] = cards[0]
+	if len(cards) > 1 {
+		out["vcards"] = cards
+	}
+	r := s.call(http.MethodPost, "/send/contact", i.Token, out)
+	if !r.ok() {
+		fail(c, r)
+		return
+	}
+	var data M
+	_ = r.decode(&data)
+	c.JSON(http.StatusCreated, evoformat.FromSend(data, i.Id))
 }
 
 func (s *Server) sendReaction(c *gin.Context) {

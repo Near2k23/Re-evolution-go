@@ -206,6 +206,15 @@ func TestV2Flow(t *testing.T) {
 		t.Fatalf("media body: %v", b)
 	}
 
+	// Varios contactos van en un solo envío (vcards).
+	if w, _ := do(s, http.MethodPost, "/message/sendContact/ventas", "global", map[string]interface{}{"number": "573001112233",
+		"contact": []map[string]interface{}{{"fullName": "Ana", "wuid": "573001", "phoneNumber": "+57 300 1"}, {"fullName": "Luis", "phoneNumber": "573002"}}}); w.Code != 201 {
+		t.Fatalf("sendContact: %d", w.Code)
+	}
+	if v := f.last["POST /send/contact"]["vcards"].([]interface{}); len(v) != 2 || v[0].(map[string]interface{})["phone"] != "573001" {
+		t.Fatalf("vcards: %v", v)
+	}
+
 	// Estado, listado y números.
 	if _, out := do(s, http.MethodGet, "/instance/connectionState/ventas", "tok-ventas", nil); out["instance"].(map[string]interface{})["state"] != "open" {
 		t.Fatalf("state: %v", out)

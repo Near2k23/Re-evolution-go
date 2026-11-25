@@ -33,6 +33,86 @@ func (s *Server) registerChat() {
 	p(http.MethodPost, "updateProfileStatus", s.simple("/user/profileStatus", func(b M) M { return M{"status": str(b, "status")} }))
 	p(http.MethodPost, "updateProfilePicture", s.simple("/user/profilePicture", func(b M) M { return M{"image": str(b, "picture")} }))
 	p(http.MethodGet, "fetchPrivacySettings", s.privacy)
+	p(http.MethodPost, "archiveChat", s.archiveChat)
+	p(http.MethodPost, "markChatUnread", s.markChatUnread)
+	p(http.MethodPost, "fetchBusinessProfile", s.businessProfile)
+}
+
+// chatOf lee el chat de un cuerpo v2 (chat o lastMessage.key.remoteJid).
+func chatOf(b M) string {
+	return str(b, "chat", "lastMessage.key.remoteJid", "number")
+}
+
+func (s *Server) archiveChat(c *gin.Context) {
+	i := inst(c)
+	b, ok := body(c)
+	if !ok {
+		return
+	}
+	chat := chatOf(b)
+	if chat == "" {
+		v2Error(c, http.StatusBadRequest, "chat is required")
+		return
+	}
+	archive, has := boolOf(b, "archive")
+	path := "/chat/archive"
+	if has && !archive {
+		path = "/chat/unarchive"
+	}
+	if r := s.call(http.MethodPost, path, i.Token, M{"chat": toJID(chat)}); !r.ok() {
+		fail(c, r)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"chatId": toJID(chat), "archived": !has || archive})
+}
+
+func (s *Server) markChatUnread(c *gin.Context) {
+	i := inst(c)
+	b, ok := body(c)
+	if !ok {
+		return
+	}
+	chat := chatOf(b)
+	if chat == "" {
+		v2Error(c, http.StatusBadRequest, "chat is required")
+		return
+	}
+	if r := s.call(http.MethodPost, "/chat/markunread", i.Token, M{"chat": toJID(chat)}); !r.ok() {
+		fail(c, r)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"chatId": toJID(chat), "markedChatUnread": true})
+}
+
+func (s *Server) businessProfile(c *gin.Context) {
+	i := inst(c)
+	b, ok := body(c)
+	if !ok {
+		return
+	}
+	n := str(b, "number")
+	r := s.call(http.MethodPost, "/user/business", i.Token, M{"number": n})
+	if !r.ok() {
+		fail(c, r)
+		return
+	}
+	var p M
+	_ = r.decode(&p)
+	cats := []string{}
+	if list, ok := p["Categories"].([]interface{}); ok {
+		for _, it := range list {
+			if m, ok := it.(map[string]interface{}); ok {
+				cats = append(cats, evoformat.Str(m, "Name"))
+			}
+		}
+	}
+	desc := ""
+	if opts, ok := p["ProfileOptions"].(map[string]interface{}); ok {
+		desc, _ = opts["description"].(string)
+	}
+	c.JSON(http.StatusOK, gin.H{"wid": nilIfEmpty(evoformat.Str(p, "JID")), "address": nilIfEmpty(evoformat.Str(p, "Address")),
+		"email": nilIfEmpty(evoformat.Str(p, "Email")), "description": nilIfEmpty(desc), "website": []string{},
+		"category": nilIfEmpty(strings.Join(cats, ", ")), "business_hours": p["BusinessHours"], "isBusiness": evoformat.Str(p, "JID") != ""})
 }
 
 // simple llama a una ruta Go y responde {update: "success"}.

@@ -152,6 +152,29 @@ func (s *Server) registerGroups() {
 		c.JSON(http.StatusOK, gin.H{"accepted": true})
 	})
 
+	p(http.MethodPost, "toggleEphemeral", needJID(func(c *gin.Context, i *instance_model.Instance, jid string) {
+		b, ok := body(c)
+		if !ok {
+			return
+		}
+		exp := int64(num(b, "expiration"))
+		if r := s.call(http.MethodPost, "/group/ephemeral", i.Token, M{"groupJid": jid, "expiration": exp}); !r.ok() {
+			fail(c, r)
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"success": true})
+	}))
+	p(http.MethodGet, "inviteInfo", func(c *gin.Context) {
+		i := inst(c)
+		r := s.call(http.MethodPost, "/group/inviteinfo", i.Token, M{"code": c.Query("inviteCode")})
+		if !r.ok() {
+			fail(c, r)
+			return
+		}
+		var g M
+		_ = r.decode(&g)
+		c.JSON(http.StatusOK, groupView(g, true))
+	})
 	p(http.MethodGet, "fetchAllGroups", func(c *gin.Context) {
 		i := inst(c)
 		r := s.call(http.MethodGet, "/group/list", i.Token, nil)

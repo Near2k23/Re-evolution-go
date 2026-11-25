@@ -14,7 +14,9 @@ import (
 	chatwoot_handler "github.com/evolution-foundation/evolution-go/pkg/chatwoot/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/compat"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
+	"github.com/evolution-foundation/evolution-go/pkg/extras"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
+	"github.com/evolution-foundation/evolution-go/pkg/metrics"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
 	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	webhooks_handler "github.com/evolution-foundation/evolution-go/pkg/webhooks/handler"
@@ -281,6 +283,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
 	linegroups.Register(r, authMiddleware, groupRepo)
 	webhooks_handler.Register(r, authMiddleware, webhookSvc, instanceService, config.WebhookUrl)
+	extras.Register(r, authMiddleware, func(id string) *whatsmeow.Client {
+		whatsmeow_service.ClientMapsMu.Lock()
+		defer whatsmeow_service.ClientMapsMu.Unlock()
+		return clientPointer[id]
+	})
 	chatbot_handler.Register(r, authMiddleware, db, botEngine)
 	chatwoot_handler.Register(r, authMiddleware, chatwootSvc)
 	chatstore_handler.Register(r, authMiddleware, chatStore, func(id string) *whatsmeow.Client { return clientPointer[id] })
@@ -336,6 +343,28 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)
 	})
+
+	if metrics.Enabled() {
+		mo := metrics.OptionsFromEnv()
+		mo.Version, mo.GlobalKey = version, config.GlobalApiKey
+		mo.Lines = func() []metrics.Line {
+			var list []instance_model.Instance
+			db.Select("id", "name").Where("client_name = ?", config.ClientName).Find(&list)
+			whatsmeow_service.ClientMapsMu.Lock()
+			defer whatsmeow_service.ClientMapsMu.Unlock()
+			out := make([]metrics.Line, 0, len(list))
+			for _, i := range list {
+				l := metrics.Line{ID: i.Id, Name: i.Name}
+				if cli := clientPointer[i.Id]; cli != nil {
+					l.LoggedIn = cli.IsLoggedIn()
+					l.Connected = l.LoggedIn && cli.IsConnected()
+				}
+				out = append(out, l)
+			}
+			return out
+		}
+		metrics.Register(r, mo)
+	}
 
 	// Rutas con la forma de Evolution API v2 (/message/sendText/:instanceName…)
 	// delante del router Go; el resto de peticiones pasan sin cambios.
