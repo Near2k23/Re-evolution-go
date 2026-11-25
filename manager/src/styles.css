@@ -316,6 +316,7 @@ dialog.sheet .acts { display: flex; gap: 8px; justify-content: flex-end; }
 /* ---------- Chats ---------- */
 .chats { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 12px; height: calc(100vh - 108px); min-height: 520px; }
 .chat-list { background: var(--surface); border-radius: var(--radius-xl); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.chat-list .search { flex: none; }
 .chat-items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -6px; padding: 0 6px; }
 .chat-item { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-decoration: none; color: var(--ink); }
 .chat-item:hover { background: var(--tint); }

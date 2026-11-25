@@ -69,6 +69,15 @@ func Register(r *gin.Engine, mw auth_middleware.Middleware, s *chatstore.Store, 
 	})
 
 	g.GET("/chats", func(c *gin.Context) {
+		if jid := c.Query("jid"); jid != "" {
+			one, err := s.GetChat(c.Param("instanceId"), jid)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "success", "data": one})
+			return
+		}
 		list, err := s.ListChats(c.Param("instanceId"), c.Query("q"), c.Query("archived") == "true", clamp(c.Query("limit"), 50, 200), parseBefore(c.Query("before")))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -206,6 +206,7 @@ export const api = {
   storeStatus: (id: string) => request<Wrapped<{ enabled: boolean; history: boolean; retentionDays: number }>>('GET', `/store/${id}/status`).then((r) => r.data),
   chats: (id: string, q = '', archived = false) =>
     request<Wrapped<StoredChat[]>>('GET', `/store/${id}/chats?limit=100&archived=${archived}&q=${encodeURIComponent(q)}`).then((r) => r.data ?? []),
+  chat: (id: string, jid: string) => request<Wrapped<StoredChat[]>>('GET', `/store/${id}/chats?jid=${encodeURIComponent(jid)}`).then((r) => (r.data ?? [])[0] ?? null),
   messages: (id: string, chat: string, before?: string) =>
     request<Wrapped<StoredMessage[]>>('GET', `/store/${id}/messages?limit=50&chat=${encodeURIComponent(chat)}${before ? `&before=${encodeURIComponent(before)}` : ''}`).then((r) => r.data ?? []),
   markRead: (id: string, chat: string) => request('POST', `/store/${id}/read`, { body: { chat } }),

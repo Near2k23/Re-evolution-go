@@ -167,7 +167,7 @@ function Conversation({ line, chat }: { line: Line; chat: string }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const isGroup = chat.endsWith('@g.us');
-  const chatInfo = qc.getQueriesData<StoredChat[]>({ queryKey: ['chats', line.id] }).flatMap(([, d]) => d ?? []).find((c) => c.jid === chat);
+  const { data: chatInfo } = useQuery({ queryKey: ['chat', line.id, chat], queryFn: () => api.chat(line.id, chat), staleTime: 30000 });
   const name = chatInfo ? chatName(chatInfo) : jidLabel(chat);
   const canSend = line.state === 'conectada' || line.state === 'reconectada';
 

@@ -3,6 +3,8 @@ package chatstore
 import (
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // ChatView es un chat con el nombre resuelto a partir de los contactos.
@@ -12,12 +14,23 @@ type ChatView struct {
 }
 
 // ListChats devuelve los chats ordenados: fijados primero, luego por último mensaje.
-func (s *Store) ListChats(instanceID, q string, archived bool, limit int, before *time.Time) ([]ChatView, error) {
-	var out []ChatView
-	tx := s.db.Table("chat_store_chats c").
+func (s *Store) chatQuery(instanceID string) *gorm.DB {
+	return s.db.Table("chat_store_chats c").
 		Select(`c.*, COALESCE(NULLIF(c.name, ''), NULLIF(ct.full_name, ''), NULLIF(ct.push_name, ''), NULLIF(ct.business_name, ''), '') AS display_name`).
 		Joins("LEFT JOIN chat_store_contacts ct ON ct.instance_id = c.instance_id AND ct.jid = c.jid").
-		Where("c.instance_id = ? AND c.archived = ? AND c.last_message_at IS NOT NULL", instanceID, archived)
+		Where("c.instance_id = ?", instanceID)
+}
+
+// GetChat devuelve un chat concreto, archivado o no.
+func (s *Store) GetChat(instanceID, jid string) ([]ChatView, error) {
+	var out []ChatView
+	err := s.chatQuery(instanceID).Where("c.jid = ?", jid).Limit(1).Scan(&out).Error
+	return out, err
+}
+
+func (s *Store) ListChats(instanceID, q string, archived bool, limit int, before *time.Time) ([]ChatView, error) {
+	var out []ChatView
+	tx := s.chatQuery(instanceID).Where("c.archived = ? AND c.last_message_at IS NOT NULL", archived)
 	if q = strings.TrimSpace(q); q != "" {
 		like := "%" + strings.ToLower(q) + "%"
 		tx = tx.Where("LOWER(c.jid) LIKE ? OR LOWER(c.name) LIKE ? OR LOWER(ct.full_name) LIKE ? OR LOWER(ct.push_name) LIKE ? OR LOWER(c.last_preview) LIKE ?", like, like, like, like, like)
