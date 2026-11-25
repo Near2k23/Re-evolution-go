@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
+	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
 	"log"
 	"net/http"
@@ -208,6 +209,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 	connlog.SetDefault(connRepo)
 
+	groupRepo := linegroups.NewRepository(db)
+	if err := groupRepo.Migrate(); err != nil {
+		log.Fatal("Failed to migrate line_groups: ", err)
+	}
+
 	authMiddleware := auth_middleware.NewMiddleware(config, instanceService)
 
 	r := gin.Default()
@@ -230,7 +236,8 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
 	passkey_handler.RegisterRoutes(r, whatsmeowService)
 
-	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs)
+	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
+	linegroups.Register(r, authMiddleware, groupRepo)
 
 	routes.NewRouter(
 		authMiddleware,

@@ -39,7 +39,7 @@ func TestRutasNoChocanConLasDeInstancia(t *testing.T) {
 	r.GET("/instance/:instanceId/advanced-settings", noop)
 	r.PUT("/instance/:instanceId/advanced-settings", noop)
 
-	Register(r, fakeMW{}, nil, nil, nil)
+	Register(r, fakeMW{}, nil, nil, nil, nil)
 
 	for _, p := range []string{"/instance/overview", "/instance/history/x", "/instance/status", "/instance/x/advanced-settings"} {
 		w := httptest.NewRecorder()

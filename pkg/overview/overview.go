@@ -37,7 +37,11 @@ type Line struct {
 	LastReason       string     `json:"lastReason,omitempty"`
 	LastEventAt      *time.Time `json:"lastEventAt,omitempty"`
 	Hours            []string   `json:"hours"`
+	GroupID          string     `json:"groupId,omitempty"`
 }
+
+// GroupLister devuelve instancia → grupo.
+type GroupLister func() (map[string]string, error)
 
 // DeviceLister devuelve los JID con sesión guardada en el almacén de whatsmeow.
 type DeviceLister func() (map[string]bool, error)
@@ -46,11 +50,12 @@ type handler struct {
 	instances instance_service.InstanceService
 	repo      *connlog.Repository
 	devices   DeviceLister
+	groups    GroupLister
 }
 
 // Register monta las rutas del manager.
-func Register(r *gin.Engine, mw auth_middleware.Middleware, instances instance_service.InstanceService, repo *connlog.Repository, devices DeviceLister) {
-	h := &handler{instances: instances, repo: repo, devices: devices}
+func Register(r *gin.Engine, mw auth_middleware.Middleware, instances instance_service.InstanceService, repo *connlog.Repository, devices DeviceLister, groups GroupLister) {
+	h := &handler{instances: instances, repo: repo, devices: devices, groups: groups}
 	admin := r.Group("/instance", mw.AuthAdmin)
 	admin.GET("/overview", h.overview)
 	admin.POST("/reconnect/:instanceId", h.reconnect)
@@ -93,10 +98,17 @@ func (h *handler) overview(c *gin.Context) {
 		stored, _ = h.devices()
 	}
 
+	var members map[string]string
+	if h.groups != nil {
+		members, _ = h.groups()
+	}
+
 	out := make([]Line, 0, len(list))
 	for _, inst := range list {
 		hasDevice := stored == nil || stored[inst.Jid]
-		out = append(out, h.line(inst, recent[inst.Id], last, now, hasDevice))
+		l := h.line(inst, recent[inst.Id], last, now, hasDevice)
+		l.GroupID = members[inst.Id]
+		out = append(out, l)
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": out})
 }

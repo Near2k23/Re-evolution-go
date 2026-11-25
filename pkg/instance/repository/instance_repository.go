@@ -165,6 +165,12 @@ func (i *instanceRepository) Delete(instanceId string) error {
 			return fmt.Errorf("erro ao deletar historial de conexión: %v", err)
 		}
 
+		// Grupo de la línea
+		// (tabla de pkg/linegroups; se nombra aquí para no crear un ciclo de imports)
+		if err := tx.Exec("DELETE FROM line_group_members WHERE instance_id = ?", instanceId).Error; err != nil {
+			return fmt.Errorf("erro ao deletar grupo da linha: %v", err)
+		}
+
 		// Deleta a instância
 		if err := tx.Where("id = ?", instanceId).Delete(&instance_model.Instance{}).Error; err != nil {
 			return fmt.Errorf("erro ao deletar instância: %v", err)
