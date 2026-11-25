@@ -36,6 +36,7 @@ type Line struct {
 	LastKind         string     `json:"lastKind,omitempty"`
 	LastReason       string     `json:"lastReason,omitempty"`
 	LastEventAt      *time.Time `json:"lastEventAt,omitempty"`
+	Hours            []string   `json:"hours"`
 }
 
 type handler struct {
@@ -97,6 +98,8 @@ func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionE
 	s := connlog.Summarize(evts, lastEvt, now)
 	exists, connected, loggedIn := h.instances.LiveState(inst.Id)
 	live := connlog.LiveState{Exists: exists, Connected: connected, LoggedIn: loggedIn}
+	state := connlog.Classify(live, inst.Jid, s)
+	upNow := state == connlog.StateConnected || state == connlog.StateReconnected
 
 	return Line{
 		ID:               inst.Id,
@@ -104,7 +107,7 @@ func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionE
 		Token:            inst.Token,
 		Jid:              inst.Jid,
 		Phone:            phoneFromJid(inst.Jid),
-		State:            connlog.Classify(live, inst.Jid, s),
+		State:            state,
 		NeedsPairing:     connlog.NeedsPairing(inst.Jid, s),
 		Webhook:          inst.Webhook,
 		Events:           inst.Events,
@@ -118,6 +121,7 @@ func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionE
 		LastKind:         s.LastKind,
 		LastReason:       s.LastReason,
 		LastEventAt:      s.LastEventAt,
+		Hours:            connlog.HourBlocks(evts, upNow, now),
 	}
 }
 

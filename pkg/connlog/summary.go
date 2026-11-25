@@ -120,3 +120,85 @@ func Classify(live LiveState, jid string, s Summary) string {
 func NeedsPairing(jid string, s Summary) bool {
 	return jid == "" || s.LastKind == KindLoggedOut
 }
+
+// Estados de un bloque horario.
+const (
+	HourUp      = "ok"
+	HourPartial = "corte"
+	HourDown    = "caida"
+)
+
+// HourBlocks divide las últimas 24 h en 24 bloques de una hora (el último termina
+// en now) y marca cada uno como ok, corte (caída parcial) o caida (toda la hora).
+// upNow es el estado actual; sirve cuando no hubo eventos en la ventana.
+func HourBlocks(evts []ConnectionEvent, upNow bool, now time.Time) []string {
+	start := now.Add(-24 * time.Hour)
+
+	// Estado al inicio de la ventana: lo contrario del primer evento, o el actual.
+	up := upNow
+	if len(evts) > 0 {
+		switch evts[0].Kind {
+		case KindConnected, KindPairSuccess:
+			up = false
+		default:
+			up = true
+		}
+	}
+
+	// Intervalos caídos dentro de la ventana.
+	type span struct{ a, b time.Time }
+	var down []span
+	var downFrom *time.Time
+	if !up {
+		s := start
+		downFrom = &s
+	}
+	for _, e := range evts {
+		if e.At.Before(start) {
+			continue
+		}
+		switch e.Kind {
+		case KindConnected, KindPairSuccess:
+			if downFrom != nil {
+				down = append(down, span{*downFrom, e.At})
+				downFrom = nil
+			}
+		default:
+			if downFrom == nil {
+				at := e.At
+				downFrom = &at
+			}
+		}
+	}
+	if downFrom != nil {
+		down = append(down, span{*downFrom, now})
+	}
+
+	out := make([]string, 24)
+	for h := 0; h < 24; h++ {
+		a := start.Add(time.Duration(h) * time.Hour)
+		b := a.Add(time.Hour)
+		var covered time.Duration
+		for _, d := range down {
+			lo, hi := d.a, d.b
+			if lo.Before(a) {
+				lo = a
+			}
+			if hi.After(b) {
+				hi = b
+			}
+			if hi.After(lo) {
+				covered += hi.Sub(lo)
+			}
+		}
+		switch {
+		case covered <= 0:
+			out[h] = HourUp
+		case covered >= time.Hour-time.Second:
+			out[h] = HourDown
+		default:
+			out[h] = HourPartial
+		}
+	}
+	return out
+}

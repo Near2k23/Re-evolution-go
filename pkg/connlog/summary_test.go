@@ -84,3 +84,32 @@ func TestKindOf(t *testing.T) {
 		t.Fatal(k)
 	}
 }
+
+func TestHourBlocks(t *testing.T) {
+	now := time.Date(2026, 11, 25, 16, 0, 0, 0, time.UTC)
+	// Sin eventos: todo según el estado actual.
+	for _, b := range HourBlocks(nil, true, now) {
+		if b != HourUp {
+			t.Fatalf("arriba sin eventos: %s", b)
+		}
+	}
+	for _, b := range HourBlocks(nil, false, now) {
+		if b != HourDown {
+			t.Fatalf("caída sin eventos: %s", b)
+		}
+	}
+	// Corte de 41 s en la hora 22 (de 14:00 a 15:00).
+	evts := []ConnectionEvent{
+		ev(KindDisconnected, now.Add(-90*time.Minute)),
+		ev(KindConnected, now.Add(-90*time.Minute+41*time.Second)),
+	}
+	b := HourBlocks(evts, true, now)
+	if b[22] != HourPartial || b[21] != HourUp || b[23] != HourUp {
+		t.Fatalf("bloques = %v", b)
+	}
+	// Caída desde hace 3 h y sigue caída.
+	b = HourBlocks([]ConnectionEvent{ev(KindLoggedOut, now.Add(-3*time.Hour))}, false, now)
+	if b[20] != HourUp || b[21] != HourDown || b[23] != HourDown {
+		t.Fatalf("bloques = %v", b)
+	}
+}
