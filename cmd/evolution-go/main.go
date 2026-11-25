@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/connlog"
+	"github.com/evolution-foundation/evolution-go/pkg/overview"
 	"log"
 	"net/http"
 	"os"
@@ -199,6 +201,15 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// NOVO: PollHandler usando PollService já inicializado no whatsmeowService (evita dupla inicialização)
 	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
 
+	// Historial de conexión de las líneas (estado conectada/reconectada/caída del manager).
+	connRepo := connlog.NewRepository(db)
+	if err := connRepo.Migrate(); err != nil {
+		log.Fatal("Failed to migrate connection_events: ", err)
+	}
+	connlog.SetDefault(connRepo)
+
+	authMiddleware := auth_middleware.NewMiddleware(config, instanceService)
+
 	r := gin.Default()
 
 	// CORS middleware — must be before everything else
@@ -226,8 +237,10 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
 	passkey_handler.RegisterRoutes(r, whatsmeowService)
 
+	overview.Register(r, authMiddleware, instanceService, connRepo)
+
 	routes.NewRouter(
-		auth_middleware.NewMiddleware(config, instanceService),
+		authMiddleware,
 		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(userService),
 		send_handler.NewSendHandler(sendMessageService),

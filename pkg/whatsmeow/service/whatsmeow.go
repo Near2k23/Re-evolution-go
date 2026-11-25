@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"image/png"
 	"io"
 	"math/rand"
@@ -902,6 +903,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	postMap := make(map[string]interface{})
 	postMap["data"] = rawEvt
 	doWebhook := false
+
+	connlog.Observe(userID, rawEvt)
 
 	switch evt := rawEvt.(type) {
 	case *events.QR:

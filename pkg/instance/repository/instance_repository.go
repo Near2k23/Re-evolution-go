@@ -2,6 +2,7 @@ package instance_repository
 
 import (
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	"github.com/gomessguii/logger"
@@ -157,6 +158,11 @@ func (i *instanceRepository) Delete(instanceId string) error {
 		// (source = instanceId cubre filas antiguas guardadas antes de instance_id)
 		if err := tx.Where("instance_id = ? OR source = ?", instanceId, instanceId).Delete(&message_model.Message{}).Error; err != nil {
 			return fmt.Errorf("erro ao deletar mensagens: %v", err)
+		}
+
+		// Historial de conexión del manager
+		if err := tx.Where("instance_id = ?", instanceId).Delete(&connlog.ConnectionEvent{}).Error; err != nil {
+			return fmt.Errorf("erro ao deletar historial de conexión: %v", err)
 		}
 
 		// Deleta a instância

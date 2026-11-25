@@ -45,6 +45,7 @@ type InstanceService interface {
 	GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error)
 	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
 	UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error
+	LiveState(instanceId string) (exists, connected, loggedIn bool)
 }
 
 type instances struct {
@@ -908,6 +909,16 @@ func (i instances) UpdateAdvancedSettings(instanceId string, settings *instance_
 
 	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated successfully", instanceId)
 	return nil
+}
+
+// LiveState informa si hay cliente de whatsmeow en memoria para la instancia,
+// si su socket está conectado y si la sesión está iniciada.
+func (i instances) LiveState(instanceId string) (exists, connected, loggedIn bool) {
+	client := i.clientPointer[instanceId]
+	if client == nil {
+		return false, false, false
+	}
+	return true, client.IsConnected(), client.IsLoggedIn()
 }
 
 func NewInstanceService(
