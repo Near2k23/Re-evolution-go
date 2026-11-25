@@ -521,6 +521,8 @@ const en = {
   'cw.test': "Test connection",
   'cw.testOk': "Connection works",
   'cw.testFail': "Could not connect: {error}",
+  'webhook.evoFormat': "Evolution API v2 format",
+  'webhook.evoFormat.desc': "Events are sent with the names and shape of Evolution API v2 (messages.upsert, connection.update…), for n8n and other integrations built for it.",
 };
 
 export type Dict = typeof en;

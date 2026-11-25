@@ -523,6 +523,8 @@ const ru: Dict = {
   'cw.test': "Проверить подключение",
   'cw.testOk': "Подключение работает",
   'cw.testFail': "Не удалось подключиться: {error}",
+  'webhook.evoFormat': "Формат Evolution API v2",
+  'webhook.evoFormat.desc': "События отправляются с именами и структурой Evolution API v2 (messages.upsert, connection.update…) — для n8n и других интеграций, созданных под неё.",
 };
 
 export default ru;

@@ -521,6 +521,8 @@ const ko: Dict = {
   'cw.test': "연결 테스트",
   'cw.testOk': "연결이 정상입니다",
   'cw.testFail': "연결할 수 없습니다: {error}",
+  'webhook.evoFormat': "Evolution API v2 형식",
+  'webhook.evoFormat.desc': "이벤트를 Evolution API v2의 이름과 형식(messages.upsert, connection.update…)으로 보냅니다. n8n 등 이를 위해 만든 연동용입니다.",
 };
 
 export default ko;

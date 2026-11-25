@@ -521,6 +521,8 @@ const zh: Dict = {
   'cw.test': "测试连接",
   'cw.testOk': "连接正常",
   'cw.testFail': "无法连接：{error}",
+  'webhook.evoFormat': "Evolution API v2 格式",
+  'webhook.evoFormat.desc': "事件将使用 Evolution API v2 的名称和结构发送（messages.upsert、connection.update…），适用于 n8n 等为其构建的集成。",
 };
 
 export default zh;

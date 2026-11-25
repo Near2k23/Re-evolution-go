@@ -34,6 +34,7 @@ export interface WebhookInfo {
   events: string[] | null;
   headers: Record<string, string>;
   byEvents: boolean;
+  format: '' | 'evolution-api';
   hasSecret: boolean;
   secret?: string;
   stats24h: { ok: number; failed: number };
@@ -296,7 +297,7 @@ export const api = {
   markRead: (id: string, chat: string) => request('POST', `/store/${id}/read`, { body: { chat } }),
   sendText: (token: string, number: string, text: string) => request('POST', '/send/text', { key: token, body: { number, text } }),
   webhook: (id: string) => request<Wrapped<WebhookInfo>>('GET', `/webhook/${id}`).then((r) => r.data),
-  saveWebhook: (id: string, body: { headers: Record<string, string>; byEvents: boolean; secret: 'keep' | 'new' | 'remove' }) =>
+  saveWebhook: (id: string, body: { headers: Record<string, string>; byEvents: boolean; format: '' | 'evolution-api'; secret: 'keep' | 'new' | 'remove' }) =>
     request<Wrapped<WebhookInfo>>('PUT', `/webhook/${id}`, { body }).then((r) => r.data),
   testWebhook: (id: string) => request<Wrapped<{ ok: boolean; statusCode: number; durationMs: number; error?: string; url: string }>>('POST', `/webhook/${id}/test`).then((r) => r.data),
   deliveries: (id: string) => request<Wrapped<Delivery[]>>('GET', `/webhook/${id}/deliveries?limit=30`).then((r) => r.data ?? []),

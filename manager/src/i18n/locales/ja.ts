@@ -521,6 +521,8 @@ const ja: Dict = {
   'cw.test': "接続をテスト",
   'cw.testOk': "接続は正常です",
   'cw.testFail': "接続できません：{error}",
+  'webhook.evoFormat': "Evolution API v2 形式",
+  'webhook.evoFormat.desc': "イベントを Evolution API v2 の名前と形式（messages.upsert、connection.update…）で送信します。n8n などの対応連携向けです。",
 };
 
 export default ja;

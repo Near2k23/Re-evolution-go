@@ -521,6 +521,8 @@ const it: Dict = {
   'cw.test': "Prova connessione",
   'cw.testOk': "La connessione funziona",
   'cw.testFail': "Impossibile connettersi: {error}",
+  'webhook.evoFormat': "Formato Evolution API v2",
+  'webhook.evoFormat.desc': "Gli eventi vengono inviati con i nomi e la forma di Evolution API v2 (messages.upsert, connection.update…), per n8n e le altre integrazioni pensate per essa.",
 };
 
 export default it;
