@@ -27,6 +27,8 @@ type VCardStruct struct {
 	FullName     string `json:"fullName"`
 	Organization string `json:"organization"`
 	Phone        string `json:"phone"`
+	Email        string `json:"email,omitempty"`
+	URL          string `json:"url,omitempty"`
 }
 
 func GenerateRandomString(length int) string {
@@ -360,8 +362,14 @@ BEGIN:VCARD
 VERSION:3.0
 FN:` + data.FullName + `
 ORG:` + data.Organization + `;
-TEL;type=CELL;type=VOICE;waid=` + data.Phone + `:` + data.Phone + `
-END:VCARD`
+TEL;type=CELL;type=VOICE;waid=` + data.Phone + `:` + data.Phone
+	if data.Email != "" {
+		result += "\nEMAIL;type=INTERNET:" + data.Email
+	}
+	if data.URL != "" {
+		result += "\nURL:" + data.URL
+	}
+	result += "\nEND:VCARD"
 
 	return result
 }

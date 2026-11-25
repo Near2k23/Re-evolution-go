@@ -161,14 +161,16 @@ type LocationStruct struct {
 }
 
 type ContactStruct struct {
-	Number       string            `json:"number"`
-	Id           string            `json:"id"`
-	Vcard        utils.VCardStruct `json:"vcard"`
-	Delay        int32             `json:"delay"`
-	MentionedJID []string          `json:"mentionedJid"`
-	MentionAll   bool              `json:"mentionAll"`
-	FormatJid    *bool             `json:"formatJid,omitempty"`
-	Quoted       QuotedStruct      `json:"quoted"`
+	Number string            `json:"number"`
+	Id     string            `json:"id"`
+	Vcard  utils.VCardStruct `json:"vcard"`
+	// Vcards envía varios contactos en un solo mensaje (sustituye a vcard).
+	Vcards       []utils.VCardStruct `json:"vcards,omitempty"`
+	Delay        int32               `json:"delay"`
+	MentionedJID []string            `json:"mentionedJid"`
+	MentionAll   bool                `json:"mentionAll"`
+	FormatJid    *bool               `json:"formatJid,omitempty"`
+	Quoted       QuotedStruct        `json:"quoted"`
 }
 
 // Button represents a single interactive button for /send/button.
@@ -1690,18 +1692,22 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		return nil, err
 	}
 
-	VCstring := utils.GenerateVC(utils.VCardStruct{
-		FullName:     data.Vcard.FullName,
-		Phone:        data.Vcard.Phone,
-		Organization: data.Vcard.Organization,
-	})
-
-	fmt.Println(VCstring)
-
-	msg := &waE2E.Message{ContactMessage: &waE2E.ContactMessage{
-		DisplayName: &data.Vcard.FullName,
-		Vcard:       &VCstring,
-	}}
+	cards := data.Vcards
+	if len(cards) == 0 {
+		cards = []utils.VCardStruct{data.Vcard}
+	}
+	var msg *waE2E.Message
+	if len(cards) == 1 {
+		vc := utils.GenerateVC(cards[0])
+		msg = &waE2E.Message{ContactMessage: &waE2E.ContactMessage{DisplayName: proto.String(cards[0].FullName), Vcard: proto.String(vc)}}
+	} else {
+		list := make([]*waE2E.ContactMessage, 0, len(cards))
+		for _, c := range cards {
+			list = append(list, &waE2E.ContactMessage{DisplayName: proto.String(c.FullName), Vcard: proto.String(utils.GenerateVC(c))})
+		}
+		msg = &waE2E.Message{ContactsArrayMessage: &waE2E.ContactsArrayMessage{
+			DisplayName: proto.String(fmt.Sprintf("%d contacts", len(cards))), Contacts: list}}
+	}
 
 	messaged, err := s.SendMessage(instance, msg, "ContactMessage", &SendDataStruct{
 		Id:           data.Id,

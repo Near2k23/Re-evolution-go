@@ -384,3 +384,15 @@ func TestCanonicalJID(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateVCOptionalFields(t *testing.T) {
+	vc := GenerateVC(VCardStruct{FullName: "Ana", Phone: "573001112233", Email: "ana@example.com", URL: "https://example.com"})
+	for _, want := range []string{"FN:Ana", "waid=573001112233:573001112233", "EMAIL;type=INTERNET:ana@example.com", "URL:https://example.com", "END:VCARD"} {
+		if !strings.Contains(vc, want) {
+			t.Errorf("missing %q in %q", want, vc)
+		}
+	}
+	if strings.Contains(GenerateVC(VCardStruct{FullName: "B", Phone: "1"}), "EMAIL") {
+		t.Error("no EMAIL line without email")
+	}
+}

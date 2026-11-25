@@ -2,6 +2,7 @@ package send_handler
 
 import (
 	"encoding/base64"
+	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"io"
 	"net/http"
 	"strconv"
@@ -473,14 +474,20 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 		return
 	}
 
-	if data.Vcard.Phone == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "contact phone number is required"})
-		return
+	// Uno (vcard) o varios contactos (vcards) en un mismo mensaje.
+	cards := data.Vcards
+	if len(cards) == 0 {
+		cards = []utils.VCardStruct{data.Vcard}
 	}
-
-	if data.Vcard.FullName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "contact full name is required"})
-		return
+	for _, v := range cards {
+		if v.Phone == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "contact phone number is required"})
+			return
+		}
+		if v.FullName == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "contact full name is required"})
+			return
+		}
 	}
 
 	message, err := s.sendMessageService.SendContact(data, instance)
