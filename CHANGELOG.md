@@ -1,5 +1,22 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.2 (fork Re-evolution-go, Fase 4: manager)
+
+### 🆕 Nuevo
+- **Manager «Enlace»** en `manager/` (React, con código fuente), para
+  escritorio y móvil: panel, líneas separadas en conectadas / reconectadas /
+  reconectando / caídas, detalle con ajustes y webhook, vinculación por QR o
+  código y monitor de eventos en vivo.
+- **Historial de conexión** (`connection_events`, 30 días) y endpoints
+  `GET /instance/overview`, `GET /instance/history/:id` y
+  `POST /instance/reconnect/:id`.
+- El WebSocket con clave global recibe los eventos de todas las líneas.
+
+### ⚠️ Cambios
+- Se quita `GET /license/status` (solo lo usaba el manager anterior).
+- `manager/dist` ya no se versiona: la imagen Docker lo compila; en local,
+  `make manager-build`.
+
 ## v0.7.3-re.1 (fork Re-evolution-go, Fase 0)
 
 Basado en upstream 0.7.3. Imagen construida desde este repo (`re-evolution-go`).
