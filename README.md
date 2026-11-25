@@ -214,6 +214,45 @@ el agente sale por la línea. Opciones: `signMessages`, `reopenConversation`,
 comprueba la conexión. Detrás de un proxy, el servidor usa
 `X-Forwarded-Proto`/`X-Forwarded-Host` para armar la URL del webhook.
 
+## Métricas
+
+`GET /metrics` devuelve métricas en formato Prometheus. Pide la clave global
+(cabecera `apikey` o `Authorization: Bearer`) o, si se definen `METRICS_USER`
+y `METRICS_PASSWORD`, autenticación básica. `METRICS_ENABLED=false` lo apaga.
+
+```yaml
+scrape_configs:
+  - job_name: evolution
+    metrics_path: /metrics
+    scheme: https
+    basic_auth: { username: prometheus, password: "…" }
+    static_configs: [{ targets: ["api.ejemplo.com"] }]
+```
+
+| Métrica | Qué mide |
+|---|---|
+| `evolution_instances{state}` | Líneas por estado: `open`, `connecting`, `close` |
+| `evolution_instance_up{instance}` | 1 si la línea está conectada |
+| `evolution_messages_received_total{instance}` / `evolution_messages_sent_total{instance}` | Mensajes recibidos y enviados por la API desde el arranque |
+| `evolution_calls_received_total{instance}` | Llamadas recibidas |
+| `evolution_webhook_deliveries_total{result}` | Entregas de webhook `ok` o `failed` |
+| `evolution_webhook_delivery_seconds` | Histograma del tiempo de entrega (con reintentos) |
+| `evolution_build_info{version}`, `go_*`, `process_start_time_seconds` | Versión y proceso |
+
+## Chats, grupos y contactos
+
+- `POST /chat/archive|unarchive|pin|unpin|mute|unmute|markunread` con
+  `{"chat": "<jid>"}` o `{"number": "57300…"}`. `mute` acepta `duration` en
+  segundos (8 h por defecto, `-1` = siempre) y `markunread` acepta
+  `"read": true`. Archivar y marcar usan el último mensaje del historial de
+  chats, que WhatsApp exige.
+- `POST /group/inviteinfo {"code"}`: datos del grupo de un enlace sin unirse.
+- `POST /group/ephemeral {"groupJid", "expiration"}`: mensajes temporales
+  (0, 86400, 604800 o 7776000 segundos).
+- `POST /user/business {"number"}`: perfil de empresa.
+- `POST /send/contact` acepta `vcards: [...]` para varios contactos en un
+  mensaje, y `email` y `url` en cada uno.
+
 ## Compatibilidad con Evolution API v2
 
 Las integraciones hechas para Evolution API v2 (n8n con
@@ -226,8 +265,8 @@ igual. La línea se identifica por su **nombre** (`:instanceName`) y la cabecera
 |---|---|
 | Instancia | `POST /instance/create`, `GET /instance/fetchInstances`, `GET /instance/connect/:n`, `GET /instance/connectionState/:n`, `POST\|PUT /instance/restart/:n`, `DELETE /instance/logout/:n`, `DELETE /instance/delete/:n`, `POST /instance/setPresence/:n` |
 | Mensajes | `POST /message/{sendText, sendMedia, sendPtv, sendWhatsAppAudio, sendSticker, sendLocation, sendContact, sendReaction, sendPoll, sendList, sendButtons, sendStatus}/:n` |
-| Chat | `POST /chat/{whatsappNumbers, markMessageAsRead, updateMessage, sendPresence, fetchProfilePictureUrl, fetchProfile, updateBlockStatus, findChats, findMessages, findContacts, getBase64FromMediaMessage, updateProfileName, updateProfileStatus, updateProfilePicture}/:n`, `DELETE /chat/deleteMessageForEveryone/:n`, `GET /chat/{findChatByRemoteJid, fetchPrivacySettings}/:n` |
-| Grupos | `POST /group/{create, updateGroupSubject, updateGroupDescription, updateGroupPicture, updateSetting, updateParticipant, revokeInviteCode}/:n`, `GET /group/{fetchAllGroups, findGroupInfos, participants, inviteCode, acceptInviteCode}/:n`, `DELETE /group/leaveGroup/:n` |
+| Chat | `POST /chat/{whatsappNumbers, markMessageAsRead, updateMessage, sendPresence, fetchProfilePictureUrl, fetchProfile, updateBlockStatus, findChats, findMessages, findContacts, getBase64FromMediaMessage, updateProfileName, updateProfileStatus, updateProfilePicture, archiveChat, markChatUnread, fetchBusinessProfile}/:n`, `DELETE /chat/deleteMessageForEveryone/:n`, `GET /chat/{findChatByRemoteJid, fetchPrivacySettings}/:n` |
+| Grupos | `POST /group/{create, updateGroupSubject, updateGroupDescription, updateGroupPicture, updateSetting, updateParticipant, revokeInviteCode, toggleEphemeral}/:n`, `GET /group/{fetchAllGroups, findGroupInfos, participants, inviteCode, inviteInfo, acceptInviteCode}/:n`, `DELETE /group/leaveGroup/:n` |
 | Etiquetas | `GET /label/findLabels/:n`, `POST /label/handleLabel/:n` |
 | Ajustes | `POST /settings/set/:n`, `GET /settings/find/:n`, `POST /proxy/set/:n`, `GET /proxy/find/:n`, `POST /webhook/set/:n`, `GET /webhook/find/:n` |
 
@@ -250,8 +289,7 @@ envían en este formato. `WEBHOOK_FORMAT=evolution-api` aplica lo mismo al
 webhook global; el resto de líneas sigue con el formato de Evolution GO.
 
 No disponible por ahora: Chatwoot, bots y plantillas con las rutas de v2 (usan
-su propia API, ver arriba), `archiveChat`, `markChatUnread`,
-`toggleEphemeral`, `base64` en webhooks y SQS/Kafka.
+su propia API, ver arriba), `base64` en webhooks y SQS/Kafka.
 
 ---
 

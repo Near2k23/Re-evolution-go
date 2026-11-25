@@ -1,5 +1,29 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.9 (fork Re-evolution-go, Fase 6: extras)
+
+### 🆕 Nuevo
+- **Métricas de Prometheus** en `GET /metrics`: líneas por estado, mensajes
+  recibidos y enviados, llamadas, entregas y tiempo de los webhooks, y datos
+  del proceso. Con la clave global o autenticación básica (`METRICS_USER`,
+  `METRICS_PASSWORD`).
+- **`/chat/markunread`** y `duration` en `/chat/mute` (también para siempre).
+- **Grupos:** `/group/inviteinfo` y `/group/ephemeral` (mensajes temporales).
+- **Perfil de empresa:** `/user/business`.
+- **Varios contactos** en un mensaje (`vcards`) y `email`/`url` en la vCard.
+- Rutas v2: `archiveChat`, `markChatUnread`, `toggleEphemeral`, `inviteInfo`
+  y `fetchBusinessProfile`; `sendContact` manda todos los contactos juntos.
+
+### 🐛 Correcciones
+- Archivar, fijar, silenciar no funcionaban con un número: se convertía en
+  `+57…@s.whatsapp.net`. Ahora aceptan `chat` o `number`, archivar usa el
+  último mensaje del chat y, si faltan las claves de sincronización, se piden
+  y se reintenta.
+
+### ⬆️ Notas de actualización
+- Variables nuevas opcionales: `METRICS_ENABLED`, `METRICS_USER`,
+  `METRICS_PASSWORD`. Sin cambios en la base de datos.
+
 ## v0.7.3-re.8 (fork Re-evolution-go, Fase 5: compatibilidad con Evolution API v2)
 
 ### 🆕 Nuevo
