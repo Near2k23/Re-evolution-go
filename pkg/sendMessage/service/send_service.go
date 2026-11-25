@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
+	"github.com/evolution-foundation/evolution-go/pkg/metrics"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -2796,6 +2797,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	// Historial de chats del fork (pkg/chatstore).
 	chatstore.ObserveSent(instance.Id, messageInfo, msg)
 	chatwoot.ObserveSent(instance.Id, messageInfo, msg)
+	metrics.ObserveSent(instance.Id)
 
 	messageSent := &MessageSendStruct{
 		Info:    messageInfo,

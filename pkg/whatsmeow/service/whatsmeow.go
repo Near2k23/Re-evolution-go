@@ -11,6 +11,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
+	"github.com/evolution-foundation/evolution-go/pkg/metrics"
 	"image/png"
 	"io"
 	"math/rand"
@@ -956,6 +957,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	chatstore.Observe(userID, mycli.WAClient, rawEvt)
 	chatbot.Observe(userID, rawEvt)
 	chatwoot.Observe(userID, rawEvt)
+	metrics.Observe(userID, rawEvt)
 
 	switch evt := rawEvt.(type) {
 	case *events.QR:

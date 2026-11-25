@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/metrics"
 	"io"
 	"math"
 	mrand "math/rand"
@@ -414,6 +415,9 @@ func (s *Service) deliver(t Target, payload []byte, event, path string, test boo
 	}
 	res.URL = url
 	res.DurationMs = time.Since(start).Milliseconds()
+	if !test {
+		metrics.ObserveWebhook(res.OK, time.Since(start))
+	}
 	if s.db != nil && t.InstanceID != "" {
 		d := Delivery{InstanceID: t.InstanceID, Event: event, URL: url, StatusCode: res.StatusCode, Attempts: res.Attempts,
 			DurationMs: res.DurationMs, Error: res.Error, OK: res.OK, Test: test, At: time.Now()}
