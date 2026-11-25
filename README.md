@@ -214,6 +214,45 @@ el agente sale por la línea. Opciones: `signMessages`, `reopenConversation`,
 comprueba la conexión. Detrás de un proxy, el servidor usa
 `X-Forwarded-Proto`/`X-Forwarded-Host` para armar la URL del webhook.
 
+## Compatibilidad con Evolution API v2
+
+Las integraciones hechas para Evolution API v2 (n8n con
+`n8n-nodes-evolution-api`, Typebot, scripts propios) funcionan contra este
+servidor sin cambios: las rutas v2 conviven con las de Evolution GO, que siguen
+igual. La línea se identifica por su **nombre** (`:instanceName`) y la cabecera
+`apikey` acepta la clave global o el token de la línea.
+
+| Grupo | Rutas |
+|---|---|
+| Instancia | `POST /instance/create`, `GET /instance/fetchInstances`, `GET /instance/connect/:n`, `GET /instance/connectionState/:n`, `POST\|PUT /instance/restart/:n`, `DELETE /instance/logout/:n`, `DELETE /instance/delete/:n`, `POST /instance/setPresence/:n` |
+| Mensajes | `POST /message/{sendText, sendMedia, sendPtv, sendWhatsAppAudio, sendSticker, sendLocation, sendContact, sendReaction, sendPoll, sendList, sendButtons, sendStatus}/:n` |
+| Chat | `POST /chat/{whatsappNumbers, markMessageAsRead, updateMessage, sendPresence, fetchProfilePictureUrl, fetchProfile, updateBlockStatus, findChats, findMessages, findContacts, getBase64FromMediaMessage, updateProfileName, updateProfileStatus, updateProfilePicture}/:n`, `DELETE /chat/deleteMessageForEveryone/:n`, `GET /chat/{findChatByRemoteJid, fetchPrivacySettings}/:n` |
+| Grupos | `POST /group/{create, updateGroupSubject, updateGroupDescription, updateGroupPicture, updateSetting, updateParticipant, revokeInviteCode}/:n`, `GET /group/{fetchAllGroups, findGroupInfos, participants, inviteCode, acceptInviteCode}/:n`, `DELETE /group/leaveGroup/:n` |
+| Etiquetas | `GET /label/findLabels/:n`, `POST /label/handleLabel/:n` |
+| Ajustes | `POST /settings/set/:n`, `GET /settings/find/:n`, `POST /proxy/set/:n`, `GET /proxy/find/:n`, `POST /webhook/set/:n`, `GET /webhook/find/:n` |
+
+Las respuestas imitan las de v2 (`key{remoteJid, fromMe, id}`, `message`,
+`messageType`, `messageTimestamp`, `status`…) y los errores usan
+`{status, error, response:{message}}`. `findChats`, `findMessages` y
+`findContacts` leen el historial de chats (`CHAT_STORE_ENABLED`).
+
+**Eventos.** Un webhook configurado con `/webhook/set` (o en el manager, con
+«Formato Evolution API v2») recibe los eventos con los nombres y el sobre de v2:
+`{event: "messages.upsert", instance, data, destination, date_time, sender,
+server_url, apikey}`. Con «webhook por eventos» la URL termina en
+`/messages-upsert`, `/connection-update`… Equivalencias: `Message` →
+`messages.upsert`, `SendMessage` → `send.message`, `Receipt` →
+`messages.update`, `QRCode` → `qrcode.updated`, `Connected`/`LoggedOut`… →
+`connection.update`, `Presence`/`ChatPresence` → `presence.update`, llamadas
+→ `call`, contactos → `contacts.update`, grupos → `groups.upsert|update`,
+etiquetas → `labels.edit|association`. Los eventos sin equivalente no se
+envían en este formato. `WEBHOOK_FORMAT=evolution-api` aplica lo mismo al
+webhook global; el resto de líneas sigue con el formato de Evolution GO.
+
+No disponible por ahora: Chatwoot, bots y plantillas con las rutas de v2 (usan
+su propia API, ver arriba), `archiveChat`, `markChatUnread`,
+`toggleEphemeral`, `base64` en webhooks y SQS/Kafka.
+
 ---
 
 ## API Documentation

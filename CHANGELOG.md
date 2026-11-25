@@ -1,5 +1,25 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.8 (fork Re-evolution-go, Fase 5: compatibilidad con Evolution API v2)
+
+### 🆕 Nuevo
+- **Rutas de Evolution API v2** (`/message/sendText/:instanceName`,
+  `/instance/connect/:instanceName`, `/chat/findMessages/:instanceName`…):
+  instancia, mensajes, chat, grupos, etiquetas, ajustes, proxy y webhook. La
+  línea se busca por nombre y `apikey` acepta la clave global o el token.
+  Traducen a las rutas Go, que no cambian.
+- **Eventos en formato v2** por línea (`/webhook/set` o el manager) o global
+  (`WEBHOOK_FORMAT=evolution-api`): `messages.upsert`, `connection.update`…
+  con el sobre de v2 y URL por evento en kebab-case.
+
+### ⬆️ Notas de actualización
+- Columna nueva `webhook_configs.format` (AutoMigrate).
+- Variables nuevas opcionales: `WEBHOOK_FORMAT` y `SERVER_URL`.
+- `POST /instance/create` y `DELETE /instance/delete/:id` existen en ambas
+  APIs: el cuerpo (`name` frente a `instanceName`) y el parámetro (ID frente a
+  nombre) deciden cuál responde, así que las llamadas de Evolution GO siguen
+  igual.
+
 ## v0.7.3-re.7 (fork Re-evolution-go, Fase 3: bots y Chatwoot)
 
 ### 🆕 Nuevo
