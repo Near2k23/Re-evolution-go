@@ -39,14 +39,18 @@ type Line struct {
 	Hours            []string   `json:"hours"`
 }
 
+// DeviceLister devuelve los JID con sesión guardada en el almacén de whatsmeow.
+type DeviceLister func() (map[string]bool, error)
+
 type handler struct {
 	instances instance_service.InstanceService
 	repo      *connlog.Repository
+	devices   DeviceLister
 }
 
 // Register monta las rutas del manager.
-func Register(r *gin.Engine, mw auth_middleware.Middleware, instances instance_service.InstanceService, repo *connlog.Repository) {
-	h := &handler{instances: instances, repo: repo}
+func Register(r *gin.Engine, mw auth_middleware.Middleware, instances instance_service.InstanceService, repo *connlog.Repository, devices DeviceLister) {
+	h := &handler{instances: instances, repo: repo, devices: devices}
 	admin := r.Group("/instance", mw.AuthAdmin)
 	admin.GET("/overview", h.overview)
 	admin.POST("/reconnect/:instanceId", h.reconnect)
@@ -83,14 +87,21 @@ func (h *handler) overview(c *gin.Context) {
 		return
 	}
 
+	// Sin acceso al almacén (nil) se asume que el dispositivo existe.
+	var stored map[string]bool
+	if h.devices != nil {
+		stored, _ = h.devices()
+	}
+
 	out := make([]Line, 0, len(list))
 	for _, inst := range list {
-		out = append(out, h.line(inst, recent[inst.Id], last, now))
+		hasDevice := stored == nil || stored[inst.Jid]
+		out = append(out, h.line(inst, recent[inst.Id], last, now, hasDevice))
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": out})
 }
 
-func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionEvent, last map[string]connlog.ConnectionEvent, now time.Time) Line {
+func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionEvent, last map[string]connlog.ConnectionEvent, now time.Time, hasDevice bool) Line {
 	var lastEvt *connlog.ConnectionEvent
 	if e, ok := last[inst.Id]; ok {
 		lastEvt = &e
@@ -98,7 +109,7 @@ func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionE
 	s := connlog.Summarize(evts, lastEvt, now)
 	exists, connected, loggedIn := h.instances.LiveState(inst.Id)
 	live := connlog.LiveState{Exists: exists, Connected: connected, LoggedIn: loggedIn}
-	state := connlog.Classify(live, inst.Jid, s)
+	state := connlog.Classify(live, inst.Jid, s, hasDevice)
 	upNow := state == connlog.StateConnected || state == connlog.StateReconnected
 
 	return Line{
@@ -108,7 +119,7 @@ func (h *handler) line(inst *instance_model.Instance, evts []connlog.ConnectionE
 		Jid:              inst.Jid,
 		Phone:            phoneFromJid(inst.Jid),
 		State:            state,
-		NeedsPairing:     connlog.NeedsPairing(inst.Jid, s),
+		NeedsPairing:     connlog.NeedsPairing(inst.Jid, s, hasDevice),
 		Webhook:          inst.Webhook,
 		Events:           inst.Events,
 		DisconnectReason: inst.DisconnectReason,

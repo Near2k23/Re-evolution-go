@@ -230,7 +230,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
 	passkey_handler.RegisterRoutes(r, whatsmeowService)
 
-	overview.Register(r, authMiddleware, instanceService, connRepo)
+	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs)
 
 	routes.NewRouter(
 		authMiddleware,

@@ -57,6 +57,7 @@ type WhatsmeowService interface {
 	ReconnectClient(instanceId string) error
 	ClearInstanceCache(instanceId string, token string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
+	StoredDeviceJIDs() (map[string]bool, error)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
 	UpdateInstanceSettings(instanceId string) error
@@ -362,6 +363,29 @@ func (w whatsmeowService) getAuthContainer() (*sqlstore.Container, error) {
 
 	sharedAuthContainer = container
 	return container, nil
+}
+
+// StoredDeviceJIDs devuelve los JID con sesión guardada en el almacén de
+// whatsmeow. Cuando WhatsApp cierra la sesión, whatsmeow borra el dispositivo,
+// así que un JID que no está aquí necesita vincularse otra vez.
+func (w whatsmeowService) StoredDeviceJIDs() (map[string]bool, error) {
+	container, err := w.getAuthContainer()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	devices, err := container.GetAllDevices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(devices))
+	for _, d := range devices {
+		if d.ID != nil {
+			out[d.ID.String()] = true
+		}
+	}
+	return out, nil
 }
 
 func (w whatsmeowService) StartClient(cd *ClientData) {

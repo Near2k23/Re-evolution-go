@@ -57,17 +57,19 @@ func TestClassify(t *testing.T) {
 		live LiveState
 		jid  string
 		s    Summary
+		dev  bool
 		want string
 	}{
-		{"estable", up, "57@s", Summary{}, StateConnected},
-		{"volvió sola", up, "57@s", Summary{Cuts24h: 1}, StateReconnected},
-		{"cliente sin socket", LiveState{Exists: true}, "57@s", Summary{LastKind: KindDisconnected}, StateReconnecting},
-		{"sesión cerrada", LiveState{Exists: true}, "57@s", Summary{LastKind: KindLoggedOut}, StateDown},
-		{"sin cliente", LiveState{}, "57@s", Summary{}, StateDown},
-		{"nunca vinculada", LiveState{Exists: true}, "", Summary{}, StateDown},
+		{"estable", up, "57@s", Summary{}, true, StateConnected},
+		{"volvió sola", up, "57@s", Summary{Cuts24h: 1}, true, StateReconnected},
+		{"cliente sin socket", LiveState{Exists: true}, "57@s", Summary{LastKind: KindDisconnected}, true, StateReconnecting},
+		{"sin dispositivo guardado", LiveState{Exists: true}, "57@s", Summary{LastKind: KindDisconnected}, false, StateDown},
+		{"sesión cerrada", LiveState{Exists: true}, "57@s", Summary{LastKind: KindLoggedOut}, true, StateDown},
+		{"sin cliente", LiveState{}, "57@s", Summary{}, true, StateDown},
+		{"nunca vinculada", LiveState{Exists: true}, "", Summary{}, false, StateDown},
 	}
 	for _, c := range cases {
-		if got := Classify(c.live, c.jid, c.s); got != c.want {
+		if got := Classify(c.live, c.jid, c.s, c.dev); got != c.want {
 			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
 		}
 	}
@@ -111,5 +113,14 @@ func TestHourBlocks(t *testing.T) {
 	b = HourBlocks([]ConnectionEvent{ev(KindLoggedOut, now.Add(-3*time.Hour))}, false, now)
 	if b[20] != HourUp || b[21] != HourDown || b[23] != HourDown {
 		t.Fatalf("bloques = %v", b)
+	}
+}
+
+func TestNeedsPairing(t *testing.T) {
+	if !NeedsPairing("57@s", Summary{}, false) {
+		t.Fatal("sin dispositivo debe pedir vinculación")
+	}
+	if NeedsPairing("57@s", Summary{LastKind: KindDisconnected}, true) {
+		t.Fatal("con dispositivo y solo un corte no debe pedir vinculación")
 	}
 }

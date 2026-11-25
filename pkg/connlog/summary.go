@@ -101,24 +101,25 @@ type LiveState struct {
 	LoggedIn  bool
 }
 
-// Classify decide el estado que ve el manager.
-func Classify(live LiveState, jid string, s Summary) string {
+// Classify decide el estado que ve el manager. hasDevice indica si el almacén
+// de sesiones de whatsmeow conserva el dispositivo de ese JID.
+func Classify(live LiveState, jid string, s Summary, hasDevice bool) string {
 	if live.Exists && live.Connected && live.LoggedIn {
 		if s.Cuts24h > 0 {
 			return StateReconnected
 		}
 		return StateConnected
 	}
-	if live.Exists && jid != "" && !NeedsPairing(jid, s) {
+	if live.Exists && jid != "" && !NeedsPairing(jid, s, hasDevice) {
 		return StateReconnecting
 	}
 	return StateDown
 }
 
-// NeedsPairing indica que hay que escanear el QR o usar el código otra vez
-// (no hay sesión, o WhatsApp la cerró).
-func NeedsPairing(jid string, s Summary) bool {
-	return jid == "" || s.LastKind == KindLoggedOut
+// NeedsPairing indica que hay que escanear el QR o usar el código otra vez:
+// nunca se vinculó, WhatsApp cerró la sesión o ya no hay dispositivo guardado.
+func NeedsPairing(jid string, s Summary, hasDevice bool) bool {
+	return jid == "" || !hasDevice || s.LastKind == KindLoggedOut
 }
 
 // Estados de un bloque horario.
