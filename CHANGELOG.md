@@ -1,5 +1,22 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.3 (fork Re-evolution-go)
+
+### 🆕 Nuevo
+- **Grupos de líneas propios** (`/line-groups`): nombre y color elegidos por
+  el usuario, pantalla Grupos para crearlos, moverlos y asignar líneas, con
+  sugerencias a partir de prefijos comunes en los nombres.
+- **Manager en 10 idiomas:** español, inglés, portugués, francés, italiano,
+  alemán, ruso, chino, japonés y coreano. Se detecta el idioma del navegador
+  y se puede cambiar desde el menú.
+- **«Intentar reconectar»** también en las líneas caídas que parecen
+  desvinculadas, y «Reconectar ahora» en las que están reconectando.
+
+### ⚠️ Cambios
+- Los grupos ya no se deducen del prefijo del nombre: hay que crearlos (la
+  pantalla Grupos los sugiere a partir de los nombres).
+- El teléfono se muestra en formato internacional genérico.
+
 ## v0.7.3-re.2 (fork Re-evolution-go, Fase 4: manager)
 
 ### 🆕 Nuevo
