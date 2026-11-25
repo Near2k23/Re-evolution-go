@@ -1,5 +1,24 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.4 (fork Re-evolution-go, Fase 1: historial de chats)
+
+### 🆕 Nuevo
+- **Historial de chats** (`pkg/chatstore`): cada línea guarda chats,
+  contactos y mensajes en Postgres — entrantes, enviados por la API y el
+  historial que WhatsApp envía al vincular — con estado de entrega y
+  lectura, ediciones y borrados.
+- **API `/store/:instanceId/...`** (clave global o token de la línea):
+  `chats`, `messages`, `messages/:id`, `contacts` y `POST read`.
+- **Manager › Chats:** lista y conversación, búsqueda, archivados, no
+  leídos, envío de texto y marcado como leído; en los 10 idiomas.
+
+### ⬆️ Notas de actualización
+- Activado por defecto. Variables: `CHAT_STORE_ENABLED`,
+  `CHAT_STORE_HISTORY`, `CHAT_STORE_RETENTION_DAYS` (90; 0 = sin límite) y
+  `CHAT_STORE_RAW`.
+- Las líneas ya vinculadas solo guardan desde ahora; el historial anterior
+  llega si se vuelven a vincular.
+
 ## v0.7.3-re.3 (fork Re-evolution-go)
 
 ### 🆕 Nuevo
