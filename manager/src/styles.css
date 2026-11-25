@@ -87,7 +87,11 @@ textarea.input { height: auto; padding: 12px 14px; resize: vertical; }
 .input::placeholder { color: #6B727C; }
 .search { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 12px; background: var(--surface); min-width: 240px; }
 .search input { border: 0; outline: none; background: transparent; font-size: 14px; flex-grow: 1; min-width: 0; }
-@media (max-width: 899px) { .search { min-width: 0; width: 100%; height: 46px; } }
+@media (max-width: 899px) {
+  .search { min-width: 0; flex: 1 1 200px; height: 46px; }
+  .hide-sm { display: none; }
+  .page-head .btn:has(.hide-sm) { width: 46px; height: 46px; padding: 0; }
+}
 
 .segmented { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--ground-2); border-radius: 14px; max-width: 100%; }
 .segmented button { height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 14px; font-weight: 500; }

@@ -94,9 +94,9 @@ export default function Lineas() {
             <span className="sr-only">Buscar línea</span>
             <input type="search" placeholder="Buscar por nombre o número" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
-          <button type="button" className="btn btn-dark" onClick={() => dialog.current?.showModal()}>
+          <button type="button" className="btn btn-dark" onClick={() => dialog.current?.showModal()} aria-label="Nueva línea">
             <Icon name="mas" size={18} />
-            Nueva línea
+            <span className="hide-sm">Nueva línea</span>
           </button>
         </div>
       </header>

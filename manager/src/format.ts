@@ -21,7 +21,7 @@ export function groupLabel(g: string): string {
 
 export function initials(name: string): string {
   const [a, b] = name.split('-');
-  if (b) return (a[0] + b).toUpperCase().slice(0, 3);
+  if (b) return (a[0] + (/^\d+$/.test(b) ? b : b[0])).toUpperCase().slice(0, 3);
   return name.slice(0, 2).toUpperCase();
 }
 
