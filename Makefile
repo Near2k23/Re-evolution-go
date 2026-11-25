@@ -1,4 +1,4 @@
-.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs
+.PHONY: manager-install manager-build manager-dev help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs
 
 # Configurações
 APP_NAME=evolution-go
@@ -119,6 +119,15 @@ deps-reset: ## Limpa cache e reinstala dependências (força uso do código loca
 	@echo "$(GREEN)✅ Dependências resetadas e atualizadas$(NC)"
 
 ##@ Documentação
+
+manager-install: ## Instala dependências do manager (React)
+	cd manager && npm ci --no-audit --no-fund
+
+manager-build: ## Compila o manager em manager/dist
+	cd manager && npm run build
+
+manager-dev: ## Manager em modo desenvolvimento (Vite, porta 5173)
+	cd manager && npm run dev
 
 swagger: ## Gera documentação Swagger
 	@echo "$(GREEN)📚 Gerando documentação Swagger...$(NC)"

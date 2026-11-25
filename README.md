@@ -122,8 +122,21 @@ LOG_TYPE=console
 
 Este fork no incluye el gate de licencia de upstream: la API funciona sin
 registrar ni activar nada y no se comunica con servidores de licencias.
-`GET /license/status` existe solo para que el manager compilado actual no pida
-activación; se quitará al reemplazar el manager.
+
+## Manager
+
+El manager («Enlace») está en `manager/` (Vite + React + TypeScript) y se sirve
+en `/manager`. Separa las líneas en conectadas, reconectadas (volvieron solas
+tras un corte), reconectando y caídas, a partir de `GET /instance/overview`.
+
+```bash
+make manager-install   # una vez
+make manager-build     # genera manager/dist, que sirve el binario
+make manager-dev       # desarrollo con Vite en :5173 (indica el servidor en el login)
+```
+
+La imagen Docker compila el manager en su propio stage; `manager/dist` no se
+versiona.
 
 ---
 

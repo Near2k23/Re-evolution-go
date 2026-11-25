@@ -35,8 +35,9 @@ Makefile
 *_test.go
 *.test
 
-# Manager/dist é necessário - serve arquivos estáticos do frontend React
-# Não excluir - precisa estar na imagem final para ser acessado via /manager
+# Manager: se compila en su propio stage del Dockerfile
+manager/node_modules/
+manager/dist/
 
 # Keep these important files/folders for build:
 # - whatsmeow/ (nossa versão local modificada)
