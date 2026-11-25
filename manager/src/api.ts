@@ -24,6 +24,14 @@ export interface Line {
   lastReason?: string;
   lastEventAt?: string;
   hours: ('ok' | 'corte' | 'caida')[];
+  groupId?: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
 }
 
 export interface ConnectionEvent {
@@ -157,6 +165,12 @@ export const api = {
     request<Wrapped<InstanceInfo>>('POST', '/instance/create', { body: { name, token: crypto.randomUUID() } }).then((r) => r.data),
   remove: (id: string) => request('DELETE', `/instance/delete/${id}`),
   reconnect: (id: string) => request('POST', `/instance/reconnect/${id}`),
+
+  groups: () => request<Wrapped<Group[]> & { colors: string[] }>('GET', '/line-groups').then((r) => ({ groups: r.data ?? [], colors: r.colors ?? [] })),
+  createGroup: (name: string, color: string) => request<Wrapped<Group>>('POST', '/line-groups', { body: { name, color } }).then((r) => r.data),
+  updateGroup: (id: string, name: string, color: string) => request<Wrapped<Group>>('PUT', `/line-groups/${id}`, { body: { name, color } }).then((r) => r.data),
+  deleteGroup: (id: string) => request('DELETE', `/line-groups/${id}`),
+  assignGroup: (instanceIds: string[], groupId: string) => request('POST', '/line-groups/assign', { body: { instanceIds, groupId } }),
 
   // Con el token de la línea.
   connect: (token: string, body: { webhookUrl: string; subscribe: string[]; rabbitmqEnable: string; websocketEnable: string; natsEnable: string; immediate?: boolean }) =>

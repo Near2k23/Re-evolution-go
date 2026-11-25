@@ -2,14 +2,17 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, type QrInfo } from '../api';
+import { useI18n } from '../i18n';
 import { describe, eventsList } from '../format';
-import { ErrorBox, Icon, Loading, StatePill, useOverview } from '../components/ui';
+import { ErrorBox, Icon, Loading, NotFound, StatePill, useOverview, useToast } from '../components/ui';
 
 type Method = 'qr' | 'codigo';
 
 const isPhone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches;
 
 export default function Vincular() {
+  const i = useI18n();
+  const { t } = i;
   const { id = '' } = useParams();
   const { data, isLoading, error } = useOverview();
   const [method, setMethod] = useState<Method>(() => (isPhone() ? 'codigo' : 'qr'));
@@ -18,45 +21,40 @@ export default function Vincular() {
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorBox error={error} />;
-  if (!line) {
-    return (
-      <div className="empty">
-        <b>No encontramos esta línea</b>
-        <Link className="btn btn-dark" to="/lineas">Volver a Líneas</Link>
-      </div>
-    );
-  }
+  if (!line) return <NotFound />;
 
   return (
     <>
       <Link to="/lineas" className="back-link">
         <Icon name="atras" size={18} />
-        Líneas
+        {t('nav.lines')}
       </Link>
       <header style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <h1 style={{ fontSize: 30 }}>Vincular {line.name}</h1>
+          <h1 style={{ fontSize: 30 }}>{t('link.title', { name: line.name })}</h1>
           <StatePill state={line.state} />
         </div>
         <p className="sub" style={{ maxWidth: 640 }}>
-          {linked ? 'La línea ya está vinculada.' : `${describe(line)} Ten a mano el teléfono de esta línea.`}
+          {linked ? t('link.already') : `${describe(i, line)} ${t('link.handy')}`}
         </p>
       </header>
 
       {linked ? (
         <div className="card" style={{ alignItems: 'flex-start' }}>
-          <h2>Listo: {line.name} está conectada</h2>
-          <p className="muted" style={{ margin: 0 }}>Ya puede enviar y recibir mensajes.</p>
-          <Link className="btn btn-dark" to={`/lineas/${line.id}`}>Ver la línea</Link>
+          <h2>{t('link.ready', { name: line.name })}</h2>
+          <p className="muted" style={{ margin: 0 }}>{t('link.canSend')}</p>
+          <Link className="btn btn-dark" to={`/lineas/${line.id}`}>
+            {t('link.viewLine')}
+          </Link>
         </div>
       ) : (
         <>
-          <div className="segmented" role="tablist" aria-label="Método de vinculación">
+          <div className="segmented" role="tablist" aria-label={t('link.method')}>
             <button type="button" role="tab" aria-selected={method === 'qr'} onClick={() => setMethod('qr')}>
-              Código QR
+              {t('link.qr')}
             </button>
             <button type="button" role="tab" aria-selected={method === 'codigo'} onClick={() => setMethod('codigo')}>
-              Código de 8 caracteres
+              {t('link.code')}
             </button>
           </div>
           <div className="split">
@@ -65,28 +63,15 @@ export default function Vincular() {
             </section>
             <aside className="side">
               <section className="card">
-                <h2>En el teléfono de la línea</h2>
+                <h2>{t('link.onPhone')}</h2>
                 <ol className="steps">
-                  <li><span>1</span>Abre WhatsApp y entra en Ajustes › Dispositivos vinculados.</li>
-                  {method === 'qr' ? (
-                    <>
-                      <li><span>2</span>Toca «Vincular un dispositivo» y desbloquea el teléfono.</li>
-                      <li><span>3</span>Apunta la cámara al código QR de esta pantalla.</li>
-                    </>
-                  ) : (
-                    <>
-                      <li><span>2</span>Toca «Vincular un dispositivo» y luego «Vincular con el número de teléfono».</li>
-                      <li><span>3</span>Escribe el código de 8 caracteres que aparece aquí.</li>
-                    </>
-                  )}
-                  <li><span>4</span>Espera aquí: la pantalla cambia sola cuando la línea quede conectada.</li>
+                  <li><span>1</span>{t('link.step1')}</li>
+                  <li><span>2</span>{method === 'qr' ? t('link.qr2') : t('link.code2')}</li>
+                  <li><span>3</span>{method === 'qr' ? t('link.qr3') : t('link.code3')}</li>
+                  <li><span>4</span>{t('link.step4')}</li>
                 </ol>
               </section>
-              {method === 'codigo' && (
-                <p className="muted" style={{ margin: '0 6px', fontSize: 13, lineHeight: 1.5 }}>
-                  Usa el código si abriste esta pantalla en el mismo teléfono de la línea: ahí no puedes escanear el QR.
-                </p>
-              )}
+              {method === 'codigo' && <p className="muted" style={{ margin: '0 6px', fontSize: 13, lineHeight: 1.5 }}>{t('link.codeTip')}</p>}
             </aside>
           </div>
         </>
@@ -96,6 +81,7 @@ export default function Vincular() {
 }
 
 function QrPanel({ token }: { token: string }) {
+  const { t } = useI18n();
   const q = useQuery<QrInfo>({ queryKey: ['qr', token], queryFn: () => api.qr(token), refetchInterval: 4000, retry: false });
   const [seen, setSeen] = useState(0);
   const last = useRef<string | undefined>(undefined);
@@ -109,19 +95,19 @@ function QrPanel({ token }: { token: string }) {
     }
   }, [q.data?.code]);
   useEffect(() => {
-    const t = setInterval(() => setAge((a) => a + 1), 1000);
-    return () => clearInterval(t);
+    const id = setInterval(() => setAge((a) => a + 1), 1000);
+    return () => clearInterval(id);
   }, []);
 
   if (q.data?.passkeyStage) {
     return (
       <div className="alert info" style={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
-        <b style={{ fontSize: 16 }}>WhatsApp pide una llave de acceso</b>
-        <span>Abre WhatsApp Web en un computador con la extensión instalada y confirma la passkey. Esta pantalla sigue sola.</span>
+        <b style={{ fontSize: 16 }}>{t('link.passkeyTitle')}</b>
+        <span>{t('link.passkeyBody')}</span>
         {q.data.passkeyCode && <span className="pair-code" style={{ fontSize: 28 }}>{q.data.passkeyCode}</span>}
         {q.data.passkeyOpenUrl && (
           <a className="btn" style={{ background: '#14306F', color: '#fff' }} href={q.data.passkeyOpenUrl} target="_blank" rel="noreferrer">
-            Abrir WhatsApp Web
+            {t('link.openWeb')}
           </a>
         )}
       </div>
@@ -132,7 +118,7 @@ function QrPanel({ token }: { token: string }) {
     return (
       <div className="empty" style={{ background: 'transparent' }} role="status">
         <span className="spinner" />
-        <span>{q.error ? 'Esperando el código QR…' : 'Preparando el código QR…'}</span>
+        <span>{q.error ? t('link.waiting') : t('link.preparing')}</span>
       </div>
     );
   }
@@ -141,7 +127,7 @@ function QrPanel({ token }: { token: string }) {
   return (
     <>
       <div className="qr-box">
-        <img src={q.data.qrcode} alt="Código QR para vincular la línea" />
+        <img src={q.data.qrcode} alt={t('link.qrAlt')} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
@@ -149,8 +135,8 @@ function QrPanel({ token }: { token: string }) {
           <circle cx="20" cy="20" r="16" fill="none" stroke="#15171A" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(left / 20) * 100.5} 101`} transform="rotate(-90 20 20)" />
         </svg>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{left > 0 ? `Se renueva en ${left} s` : 'Renovando…'}</span>
-          <span className="muted" style={{ fontSize: 13 }}>Código {seen} · los siguientes llegan solos</span>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>{left > 0 ? t('link.renewsIn', { n: left }) : t('link.renewing')}</span>
+          <span className="muted" style={{ fontSize: 13 }}>{t('link.codeN', { n: seen })}</span>
         </div>
       </div>
     </>
@@ -158,6 +144,8 @@ function QrPanel({ token }: { token: string }) {
 }
 
 function CodePanel({ token, events, initialPhone }: { token: string; events: string[]; initialPhone: string }) {
+  const { t } = useI18n();
+  const toast = useToast();
   const [phone, setPhone] = useState(initialPhone ? '+' + initialPhone : '');
   const [code, setCode] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -168,11 +156,9 @@ function CodePanel({ token, events, initialPhone }: { token: string; events: str
     setErr(null);
     setBusy(true);
     try {
-      const digits = phone.replace(/\D/g, '');
-      const c = await api.pair(token, digits, events.length ? events : ['MESSAGE']);
-      setCode(c);
+      setCode(await api.pair(token, phone.replace(/\D/g, ''), events.length ? events : ['MESSAGE']));
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : 'No se pudo pedir el código');
+      setErr(e2 instanceof Error ? e2.message : t('link.requestFailed'));
     } finally {
       setBusy(false);
     }
@@ -181,19 +167,19 @@ function CodePanel({ token, events, initialPhone }: { token: string; events: str
   return (
     <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 400 }}>
       <label className="field">
-        Número de la línea
-        <input className="input on-surface mono" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+57 300 000 0000" />
+        {t('link.number')}
+        <input className="input on-surface mono" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 000 0000" />
       </label>
       <button type="submit" className="btn btn-dark" style={{ height: 50 }} disabled={busy}>
-        {busy ? <span className="spinner" /> : code ? 'Pedir otro código' : 'Pedir código'}
+        {busy ? <span className="spinner" /> : code ? t('link.requestAnother') : t('link.request')}
       </button>
       {err && <div className="alert error">{err}</div>}
       {code && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 22, borderRadius: 18, background: 'var(--ground)' }}>
-          <span className="muted" style={{ fontSize: 13 }}>Escribe este código en el teléfono</span>
+          <span className="muted" style={{ fontSize: 13 }}>{t('link.typeCode')}</span>
           <span className="pair-code">{code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code}</span>
-          <button type="button" className="btn btn-light btn-sm" onClick={() => navigator.clipboard.writeText(code)}>
-            Copiar código
+          <button type="button" className="btn btn-light btn-sm" onClick={() => navigator.clipboard.writeText(code).then(() => toast(t('common.copied')), () => toast(t('common.copyFailed')))}>
+            {t('link.copyCode')}
           </button>
         </div>
       )}

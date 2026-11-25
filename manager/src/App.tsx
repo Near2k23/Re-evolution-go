@@ -7,6 +7,7 @@ import Lineas from './pages/Lineas';
 import Linea from './pages/Linea';
 import Vincular from './pages/Vincular';
 import Eventos from './pages/Eventos';
+import Grupos from './pages/Grupos';
 
 export default function App() {
   const { session } = useAuth();
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/lineas" element={<Lineas />} />
             <Route path="/lineas/:id" element={<Linea />} />
             <Route path="/lineas/:id/vincular" element={<Vincular />} />
+            <Route path="/grupos" element={<Grupos />} />
             <Route path="/eventos" element={<Eventos />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

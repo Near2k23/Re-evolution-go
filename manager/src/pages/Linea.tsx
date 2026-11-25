@@ -1,78 +1,60 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type AdvancedSettings, type ConnectionEvent, type Line } from '../api';
-import { STATE_META, ago, clock, describe, duration, eventsList, formatPhone } from '../format';
-import { Avatar, ErrorBox, Icon, Loading, StatePill, useOverview, useToast } from '../components/ui';
+import { api, type AdvancedSettings, type ConnectionEvent, type Group, type Line } from '../api';
+import { useI18n, type Key } from '../i18n';
+import { describe, eventsList, formatPhone, stateLabel } from '../format';
+import { Avatar, ErrorBox, Icon, Loading, NotFound, StatePill, useGroups, useOverview, useReconnect, useToast } from '../components/ui';
 
 type Tab = 'resumen' | 'ajustes' | 'webhook' | 'registro';
 
-const EVENT_LABELS: [string, string][] = [
-  ['MESSAGE', 'Mensajes recibidos'],
-  ['SEND_MESSAGE', 'Mensajes enviados'],
-  ['READ_RECEIPT', 'Acuses de lectura'],
-  ['CONNECTION', 'Conexión'],
-  ['QRCODE', 'QR y vinculación'],
-  ['CALL', 'Llamadas'],
-  ['GROUP', 'Grupos'],
-  ['LABEL', 'Etiquetas'],
-  ['CONTACT', 'Contactos'],
-  ['PRESENCE', 'Presencia'],
-  ['CHAT_PRESENCE', 'Escribiendo'],
-  ['HISTORY_SYNC', 'Historial'],
-  ['NEWSLETTER', 'Canales'],
-  ['BUTTON_CLICK', 'Botones'],
-];
-
-const KIND: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Conectada', cls: 'ok' },
-  pair_success: { label: 'Vinculada', cls: 'ok' },
-  disconnected: { label: 'Corte', cls: 'retry' },
-  logged_out: { label: 'Sesión cerrada', cls: 'down' },
-  temporary_ban: { label: 'Limitada', cls: 'down' },
-  connect_failure: { label: 'Rechazada', cls: 'down' },
-  stream_replaced: { label: 'Reemplazada', cls: 'retry' },
+const EVENT_KEYS = ['MESSAGE', 'SEND_MESSAGE', 'READ_RECEIPT', 'CONNECTION', 'QRCODE', 'CALL', 'GROUP', 'LABEL', 'CONTACT', 'PRESENCE', 'CHAT_PRESENCE', 'HISTORY_SYNC', 'NEWSLETTER', 'BUTTON_CLICK'];
+const KIND_CLASS: Record<string, string> = {
+  connected: 'ok',
+  pair_success: 'ok',
+  disconnected: 'retry',
+  logged_out: 'down',
+  temporary_ban: 'down',
+  connect_failure: 'down',
+  stream_replaced: 'retry',
 };
 
 export default function Linea() {
   const { id = '' } = useParams();
+  const { t } = useI18n();
   const { data, isLoading, error } = useOverview();
+  const { data: gd } = useGroups();
   const [tab, setTab] = useState<Tab>('resumen');
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorBox error={error} />;
   const line = data?.find((l) => l.id === id);
-  if (!line) {
-    return (
-      <div className="empty">
-        <b>No encontramos esta línea</b>
-        <Link className="btn btn-dark" to="/lineas">Volver a Líneas</Link>
-      </div>
-    );
-  }
+  if (!line) return <NotFound />;
+  const groups = gd?.groups ?? [];
+  const group = groups.find((g) => g.id === line.groupId) ?? null;
+
+  const tabs: [Tab, string][] = [
+    ['resumen', t('line.tab.summary')],
+    ['ajustes', t('line.tab.settings')],
+    ['webhook', t('line.tab.webhook')],
+    ['registro', t('line.tab.log')],
+  ];
 
   return (
     <>
       <Link to="/lineas" className="back-link">
         <Icon name="atras" size={18} />
-        Líneas
+        {t('nav.lines')}
       </Link>
-      <Header line={line} />
-      <div className="segmented" role="tablist" aria-label="Secciones de la línea">
-        {(
-          [
-            ['resumen', 'Resumen'],
-            ['ajustes', 'Ajustes'],
-            ['webhook', 'Webhook y eventos'],
-            ['registro', 'Registro'],
-          ] as [Tab, string][]
-        ).map(([t, label]) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+      <Header line={line} group={group} />
+      <div className="segmented" role="tablist" aria-label={t('line.tabs')}>
+        {tabs.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
             {label}
           </button>
         ))}
       </div>
-      {tab === 'resumen' && <Resumen line={line} onWebhook={() => setTab('webhook')} />}
+      {tab === 'resumen' && <Resumen line={line} groups={groups} onWebhook={() => setTab('webhook')} />}
       {tab === 'ajustes' && <Ajustes line={line} />}
       {tab === 'webhook' && <Webhook line={line} />}
       {tab === 'registro' && <Registro line={line} />}
@@ -80,10 +62,13 @@ export default function Linea() {
   );
 }
 
-function Header({ line }: { line: Line }) {
+function Header({ line, group }: { line: Line; group: Group | null }) {
+  const i = useI18n();
+  const { t } = i;
   const qc = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const { run: reconnect, busy: rbusy } = useReconnect();
   const [busy, setBusy] = useState<string | null>(null);
 
   async function run(kind: string, fn: () => Promise<unknown>, ok: string) {
@@ -92,33 +77,49 @@ function Header({ line }: { line: Line }) {
       await fn();
       toast(ok);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Algo falló');
+      toast(e instanceof Error ? e.message : t('common.error'));
     } finally {
       setBusy(null);
       qc.invalidateQueries({ queryKey: ['overview'] });
     }
   }
 
-  const pillLabel = line.state === 'reconectada' && line.lastReconnectAt ? `Reconectada a las ${clock(line.lastReconnectAt)}` : STATE_META[line.state].label;
+  const pillLabel = line.state === 'reconectada' && line.lastReconnectAt ? t('line.reconnectedAt', { time: i.clock(line.lastReconnectAt) }) : stateLabel(i, line.state);
+  const pairing = line.state === 'caida' && line.needsPairing;
+  const reconnectLabel = pairing ? t('card.tryReconnect') : line.state === 'reconectando' ? t('card.reconnectNow') : t('line.reconnect');
 
   return (
     <header className="detail-head">
-      <Avatar name={line.name} big />
+      <Avatar name={line.name} group={group} big />
       <div className="titles">
         <div className="row1">
           <h1 style={{ fontSize: 30 }}>{line.name}</h1>
           <StatePill state={line.state} label={pillLabel} />
         </div>
-        <span className="muted" style={{ fontSize: 14 }}>
-          <span className="mono">{formatPhone(line.phone)}</span>
+        <span className="muted mono" style={{ fontSize: 14 }}>
+          {line.phone ? formatPhone(line.phone) : t('card.noNumber')}
         </span>
       </div>
       <div className="acts">
-        {line.state === 'caida' && line.needsPairing ? (
-          <Link className="btn btn-dark" to={`/lineas/${line.id}/vincular`}>Vincular</Link>
-        ) : (
-          <button type="button" className="btn btn-dark" disabled={!!busy} onClick={() => run('rec', () => api.reconnect(line.id), 'Reconectando…')}>
-            {busy === 'rec' ? <span className="spinner" /> : 'Reconectar'}
+        {pairing && (
+          <Link className="btn btn-dark" to={`/lineas/${line.id}/vincular`}>
+            {t('card.link')}
+          </Link>
+        )}
+        {(line.jid || !pairing) && (
+          <button
+            type="button"
+            className={pairing ? 'btn btn-light' : 'btn btn-dark'}
+            disabled={!!rbusy[line.id]}
+            title={pairing ? t('card.tryReconnectHint') : undefined}
+            onClick={() => reconnect([line])}
+          >
+            {rbusy[line.id] ? <span className="spinner" /> : (
+              <>
+                <Icon name="recargar" size={18} />
+                {reconnectLabel}
+              </>
+            )}
           </button>
         )}
         {line.jid && (
@@ -127,12 +128,10 @@ function Header({ line }: { line: Line }) {
             className="btn btn-danger"
             disabled={!!busy}
             onClick={() => {
-              if (confirm(`¿Cerrar la sesión de ${line.name}? Habrá que vincularla otra vez con el teléfono.`)) {
-                run('out', () => api.logout(line.token), 'Sesión cerrada');
-              }
+              if (confirm(t('line.logoutConfirm', { name: line.name }))) run('out', () => api.logout(line.token), t('line.logoutDone'));
             }}
           >
-            {busy === 'out' ? <span className="spinner" /> : 'Cerrar sesión'}
+            {busy === 'out' ? <span className="spinner" /> : t('line.logout')}
           </button>
         )}
         <button
@@ -140,53 +139,67 @@ function Header({ line }: { line: Line }) {
           className="btn btn-danger"
           disabled={!!busy}
           onClick={async () => {
-            if (!confirm(`¿Eliminar ${line.name}? Se borra la línea del servidor y no se puede deshacer.`)) return;
-            await run('del', () => api.remove(line.id), `${line.name} eliminada`);
+            if (!confirm(t('line.deleteConfirm', { name: line.name }))) return;
+            await run('del', () => api.remove(line.id), t('line.deleted', { name: line.name }));
             navigate('/lineas');
           }}
         >
-          Eliminar
+          {t('common.delete')}
         </button>
       </div>
     </header>
   );
 }
 
-function Resumen({ line, onWebhook }: { line: Line; onWebhook: () => void }) {
+function Resumen({ line, groups, onWebhook }: { line: Line; groups: Group[]; onWebhook: () => void }) {
+  const i = useI18n();
+  const { t } = i;
+  const qc = useQueryClient();
+  const toast = useToast();
   const hist = useQuery({ queryKey: ['history', line.id, 7], queryFn: () => api.history(line.id, 7) });
-  const days = buildWeek(hist.data?.events ?? [], line.state === 'conectada' || line.state === 'reconectada');
+  const days = buildWeek(hist.data?.events ?? [], line.state === 'conectada' || line.state === 'reconectada', i.tag, t('line.today'));
+
+  async function setGroup(groupId: string) {
+    try {
+      await api.assignGroup([line.id], groupId);
+      await qc.invalidateQueries({ queryKey: ['overview'] });
+      toast(t('groups.moved'));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('common.saveFailed'));
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {!line.webhook && (
         <div className="alert warn">
-          <span className="grow">Esta línea no tiene webhook: los mensajes que recibe no llegan a tu panel.</span>
+          <span className="grow">{t('line.noHookAlert')}</span>
           <button type="button" className="btn btn-sm" style={{ background: '#6E3605', color: '#fff' }} onClick={onWebhook}>
-            Configurar
+            {t('line.configure')}
           </button>
         </div>
       )}
       <div className="grid-auto">
         <div className="stat">
-          <span className="label">Situación</span>
-          <span style={{ fontSize: 15, lineHeight: 1.45 }}>{describe(line)}</span>
+          <span className="label">{t('line.status')}</span>
+          <span style={{ fontSize: 15, lineHeight: 1.45 }}>{describe(i, line)}</span>
         </div>
         <div className="stat">
-          <span className="label">Cortes en 24 h</span>
-          <span className="value" style={{ fontSize: 28 }}>{line.cuts24h}</span>
-          <span className="hint">{line.cuts24h ? `El más largo duró ${duration(line.longestCutSec)}` : 'Sin cortes'}</span>
+          <span className="label">{t('line.cuts')}</span>
+          <span className="value" style={{ fontSize: 28 }}>{i.num(line.cuts24h)}</span>
+          <span className="hint">{line.cuts24h ? t('line.longest', { d: i.duration(line.longestCutSec) }) : t('line.noCuts')}</span>
         </div>
         <div className="stat">
-          <span className="label">Conectada desde</span>
-          <span className="value" style={{ fontSize: 28 }}>{line.connectedSince ? clock(line.connectedSince) : '—'}</span>
-          <span className="hint">{line.connectedSince ? ago(line.connectedSince) : 'Sin registro en 24 h'}</span>
+          <span className="label">{t('line.connectedSince')}</span>
+          <span className="value" style={{ fontSize: 28 }}>{line.connectedSince ? i.clock(line.connectedSince) : '—'}</span>
+          <span className="hint">{line.connectedSince ? i.ago(line.connectedSince) : t('line.noRecord')}</span>
         </div>
       </div>
 
       <section className="card">
         <div className="section-head">
-          <h2>Conexión en los últimos 7 días</h2>
-          <span className="desc">Cada bloque es una hora</span>
+          <h2>{t('line.week')}</h2>
+          <span className="desc">{t('line.eachBlock')}</span>
         </div>
         {hist.isLoading ? (
           <span className="spinner" />
@@ -195,10 +208,10 @@ function Resumen({ line, onWebhook }: { line: Line; onWebhook: () => void }) {
             <div style={{ minWidth: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {days.map((d) => (
                 <div className="hour-row" key={d.label}>
-                  <span className="n" style={{ width: 64, fontSize: 13, color: 'var(--ink-2)' }}>{d.label}</span>
-                  <div className="hours" role="img" aria-label={`${d.label}: ${d.cuts} cortes`}>
-                    {d.cells.map((c, i) => (
-                      <span key={i} className={`h-${c}`} style={{ height: 18 }} />
+                  <span className="n" style={{ width: 72, fontSize: 13, color: 'var(--ink-2)' }}>{d.label}</span>
+                  <div className="hours" role="img" aria-label={t('line.dayAria', { day: d.label, n: i.num(d.cuts) })}>
+                    {d.cells.map((c, k) => (
+                      <span key={k} className={`h-${c}`} style={{ height: 18 }} />
                     ))}
                   </div>
                 </div>
@@ -209,32 +222,44 @@ function Resumen({ line, onWebhook }: { line: Line; onWebhook: () => void }) {
       </section>
 
       <section className="card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px 28px' }}>
-        <div className="kv"><span>ID de instancia</span><span className="mono" style={{ fontSize: 13 }}>{line.id}</span></div>
+        <label className="kv">
+          <span>{t('line.group')}</span>
+          <select className="input on-surface" style={{ height: 44, fontSize: 14 }} value={line.groupId ?? ''} onChange={(e) => setGroup(e.target.value)}>
+            <option value="">{t('lines.noGroup')}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="kv"><span>{t('line.instanceId')}</span><span className="mono" style={{ fontSize: 13, wordBreak: 'break-all' }}>{line.id}</span></div>
         <TokenKV token={line.token} />
-        <div className="kv"><span>Eventos suscritos</span><span>{eventsList(line.events).length || 'Ninguno'}</span></div>
-        <div className="kv"><span>Creada</span><span>{new Date(line.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+        <div className="kv"><span>{t('line.events')}</span><span>{eventsList(line.events).length ? i.num(eventsList(line.events).length) : t('line.none')}</span></div>
+        <div className="kv"><span>{t('line.created')}</span><span>{new Date(line.createdAt).toLocaleDateString(i.tag, { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
       </section>
     </div>
   );
 }
 
 function TokenKV({ token }: { token: string }) {
+  const { t } = useI18n();
   const toast = useToast();
   const [show, setShow] = useState(false);
   return (
     <div className="kv">
-      <span>Token</span>
+      <span>{t('line.token')}</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span className="mono" style={{ fontSize: 13, wordBreak: 'break-all' }}>{show ? token : '••••••••-' + token.slice(-4)}</span>
-        <button type="button" className="btn btn-soft btn-icon" style={{ width: 36, height: 36 }} aria-label={show ? 'Ocultar token' : 'Mostrar token'} onClick={() => setShow((v) => !v)}>
+        <button type="button" className="btn btn-soft btn-icon" style={{ width: 36, height: 36 }} aria-label={show ? t('line.hideToken') : t('line.showToken')} onClick={() => setShow((v) => !v)}>
           <Icon name="ojo" size={16} />
         </button>
         <button
           type="button"
           className="btn btn-soft btn-icon"
           style={{ width: 36, height: 36 }}
-          aria-label="Copiar token"
-          onClick={() => navigator.clipboard.writeText(token).then(() => toast('Token copiado'), () => toast('No se pudo copiar'))}
+          aria-label={t('line.copyToken')}
+          onClick={() => navigator.clipboard.writeText(token).then(() => toast(t('common.copied')), () => toast(t('common.copyFailed')))}
         >
           <Icon name="copiar" size={16} />
         </button>
@@ -244,6 +269,7 @@ function TokenKV({ token }: { token: string }) {
 }
 
 function Ajustes({ line }: { line: Line }) {
+  const { t } = useI18n();
   const toast = useToast();
   const q = useQuery({ queryKey: ['settings', line.id], queryFn: () => api.getSettings(line.id) });
   const [s, setS] = useState<AdvancedSettings | null>(null);
@@ -254,13 +280,7 @@ function Ajustes({ line }: { line: Line }) {
 
   if (q.isLoading || !s) return q.error ? <ErrorBox error={q.error} /> : <Loading />;
 
-  const items: [keyof AdvancedSettings, string, string][] = [
-    ['alwaysOnline', 'Siempre en línea', 'Muestra la línea como «en línea» para los contactos mientras esté conectada.'],
-    ['rejectCall', 'Rechazar llamadas', 'Cuelga las llamadas entrantes y envía el mensaje de abajo.'],
-    ['readMessages', 'Marcar mensajes como leídos', 'Envía el doble check azul en cuanto llega un mensaje.'],
-    ['ignoreGroups', 'Ignorar grupos', 'No envía al webhook los mensajes de grupos.'],
-    ['ignoreStatus', 'Ignorar estados', 'No envía al webhook las publicaciones de estados.'],
-  ];
+  const items: (keyof AdvancedSettings)[] = ['alwaysOnline', 'rejectCall', 'readMessages', 'ignoreGroups', 'ignoreStatus'];
   const dirty = JSON.stringify(s) !== JSON.stringify(q.data);
 
   async function save() {
@@ -269,9 +289,9 @@ function Ajustes({ line }: { line: Line }) {
     try {
       await api.putSettings(line.id, s);
       await q.refetch();
-      toast('Ajustes guardados');
+      toast(t('settings.saved'));
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'No se pudo guardar');
+      toast(e instanceof Error ? e.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -279,30 +299,33 @@ function Ajustes({ line }: { line: Line }) {
 
   return (
     <section className="card" style={{ gap: 0, paddingTop: 8, paddingBottom: 16 }}>
-      {items.map(([key, title, desc]) => (
-        <div className="setting" key={key}>
-          <div className="txt">
-            <b>{title}</b>
-            <span>{desc}</span>
+      {items.map((key) => {
+        const title = t(`settings.${key}` as Key);
+        return (
+          <div className="setting" key={key}>
+            <div className="txt">
+              <b>{title}</b>
+              <span>{t(`settings.${key}.desc` as Key)}</span>
+            </div>
+            <button type="button" role="switch" className="switch" aria-checked={!!s[key]} aria-label={title} onClick={() => setS({ ...s, [key]: !s[key] })}>
+              <span />
+            </button>
           </div>
-          <button type="button" role="switch" className="switch" aria-checked={!!s[key]} aria-label={title} onClick={() => setS({ ...s, [key]: !s[key] })}>
-            <span />
-          </button>
-        </div>
-      ))}
+        );
+      })}
       {s.rejectCall && (
         <label className="field" style={{ paddingBottom: 16 }}>
-          Mensaje al rechazar una llamada
-          <textarea className="input on-surface" rows={2} value={s.msgRejectCall} onChange={(e) => setS({ ...s, msgRejectCall: e.target.value })} placeholder="En este momento no podemos atender llamadas…" />
+          {t('settings.rejectMsg')}
+          <textarea className="input on-surface" rows={2} value={s.msgRejectCall} onChange={(e) => setS({ ...s, msgRejectCall: e.target.value })} placeholder={t('settings.rejectMsg.placeholder')} />
         </label>
       )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn btn-dark" disabled={!dirty || saving} onClick={save}>
-          {saving ? <span className="spinner" /> : 'Guardar ajustes'}
+          {saving ? <span className="spinner" /> : t('settings.save')}
         </button>
         {dirty && (
           <button type="button" className="btn btn-soft" onClick={() => setS(q.data!)}>
-            Descartar
+            {t('common.discard')}
           </button>
         )}
       </div>
@@ -311,6 +334,7 @@ function Ajustes({ line }: { line: Line }) {
 }
 
 function Webhook({ line }: { line: Line }) {
+  const { t } = useI18n();
   const toast = useToast();
   const qc = useQueryClient();
   const info = useQuery({ queryKey: ['info', line.id], queryFn: () => api.info(line.id) });
@@ -332,9 +356,9 @@ function Webhook({ line }: { line: Line }) {
       });
       await qc.invalidateQueries({ queryKey: ['overview'] });
       await qc.invalidateQueries({ queryKey: ['info', line.id] });
-      toast('Webhook guardado');
+      toast(t('webhook.saved'));
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'No se pudo guardar');
+      toast(e instanceof Error ? e.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -342,15 +366,15 @@ function Webhook({ line }: { line: Line }) {
 
   return (
     <section className="card">
-      {!line.webhook && <div className="alert warn">Esta línea no tiene webhook. Los mensajes que recibe no llegan a tu panel hasta que pongas una URL.</div>}
+      {!line.webhook && <div className="alert warn">{t('webhook.missing')}</div>}
       <label className="field">
-        URL del webhook
-        <input className="input on-surface mono" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-panel.com/api/webhook" style={{ fontSize: 14 }} />
+        {t('webhook.url')}
+        <input className="input on-surface mono" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhook" style={{ fontSize: 14 }} />
       </label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>Eventos que se envían</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t('webhook.events')}</span>
         <div className="chips">
-          {EVENT_LABELS.map(([k, label]) => {
+          {EVENT_KEYS.map((k) => {
             const on = events.includes(k) || events.includes('ALL');
             return (
               <button
@@ -358,20 +382,18 @@ function Webhook({ line }: { line: Line }) {
                 type="button"
                 className="evt-toggle"
                 aria-pressed={on}
-                onClick={() => setEvents((ev) => (ev.includes('ALL') ? EVENT_LABELS.map(([x]) => x).filter((x) => x !== k) : on ? ev.filter((x) => x !== k) : [...ev, k]))}
+                onClick={() => setEvents((ev) => (ev.includes('ALL') ? EVENT_KEYS.filter((x) => x !== k) : on ? ev.filter((x) => x !== k) : [...ev, k]))}
               >
-                {label}
+                {t(`evt.${k}` as Key)}
               </button>
             );
           })}
         </div>
       </div>
-      <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-        Guardar aquí reemplaza el webhook y los eventos de esta línea. Si otro sistema (por ejemplo, tu panel) los configura, lo que guardes aquí lo sobrescribe.
-      </p>
+      <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{t('webhook.overwrite')}</p>
       <div>
         <button type="button" className="btn btn-dark" disabled={!dirty || saving || !info.data} onClick={save}>
-          {saving ? <span className="spinner" /> : 'Guardar webhook'}
+          {saving ? <span className="spinner" /> : t('webhook.save')}
         </button>
       </div>
     </section>
@@ -379,6 +401,8 @@ function Webhook({ line }: { line: Line }) {
 }
 
 function Registro({ line }: { line: Line }) {
+  const i = useI18n();
+  const { t } = i;
   const hist = useQuery({ queryKey: ['history', line.id, 30], queryFn: () => api.history(line.id, 30) });
   if (hist.isLoading) return <Loading />;
   if (hist.error) return <ErrorBox error={hist.error} />;
@@ -386,19 +410,21 @@ function Registro({ line }: { line: Line }) {
   if (!evts.length) {
     return (
       <div className="empty">
-        <b>Sin eventos registrados</b>
-        <span>El registro empieza a llenarse desde la versión 0.7.3-re.2.</span>
+        <b>{t('log.emptyTitle')}</b>
+        <span>{t('log.emptyHint')}</span>
       </div>
     );
   }
   return (
     <section className="card" style={{ paddingTop: 10, paddingBottom: 10, gap: 0 }}>
-      {evts.map((e: ConnectionEvent, i) => {
-        const k = KIND[e.kind] ?? { label: e.kind, cls: '' };
+      {evts.map((e: ConnectionEvent, k) => {
+        const known = e.kind in KIND_CLASS;
         return (
-          <div className="row" key={i}>
-            <span className="mono muted" style={{ width: 130, flexShrink: 0, fontSize: 12.5 }}>{new Date(e.at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-            <span className={`ev-chip ${k.cls}`}>{k.label}</span>
+          <div className="row" key={k}>
+            <span className="mono muted" style={{ width: 140, flexShrink: 0, fontSize: 12.5 }}>
+              {new Date(e.at).toLocaleString(i.tag, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span className={`ev-chip ${KIND_CLASS[e.kind] ?? ''}`}>{known ? t(`kind.${e.kind}` as Key) : e.kind}</span>
             {e.reason && <span style={{ flex: '1 1 220px', fontSize: 14, color: '#2A2F35' }}>{e.reason}</span>}
           </div>
         );
@@ -408,11 +434,10 @@ function Registro({ line }: { line: Line }) {
 }
 
 /** Siete filas de 24 horas (hoy al final) a partir de los eventos. */
-function buildWeek(events: ConnectionEvent[], upNow: boolean) {
+function buildWeek(events: ConnectionEvent[], upNow: boolean, tag: string, todayLabel: string) {
   const now = new Date();
   const down: [number, number][] = [];
   let from: number | null = null;
-  // Estado antes del primer evento: el contrario de ese evento, o el actual.
   const first = events[0];
   const startUp = first ? !(first.kind === 'connected' || first.kind === 'pair_success') : upNow;
   const weekStart = new Date(now);
@@ -420,11 +445,11 @@ function buildWeek(events: ConnectionEvent[], upNow: boolean) {
   weekStart.setDate(weekStart.getDate() - 6);
   if (!startUp) from = weekStart.getTime();
   for (const e of events) {
-    const t = new Date(e.at).getTime();
+    const at = new Date(e.at).getTime();
     if (e.kind === 'connected' || e.kind === 'pair_success') {
-      if (from !== null) down.push([from, t]);
+      if (from !== null) down.push([from, at]);
       from = null;
-    } else if (from === null) from = t;
+    } else if (from === null) from = at;
   }
   if (from !== null) down.push([from, now.getTime()]);
 
@@ -436,24 +461,21 @@ function buildWeek(events: ConnectionEvent[], upNow: boolean) {
     let cuts = 0;
     for (let h = 0; h < 24; h++) {
       const a = day.getTime() + h * 3600e3;
-      const b = a + 3600e3;
       if (a > now.getTime()) {
         cells.push('sin');
         continue;
       }
-      const end = Math.min(b, now.getTime());
+      const end = Math.min(a + 3600e3, now.getTime());
       let covered = 0;
       for (const [x, y] of down) covered += Math.max(0, Math.min(y, end) - Math.max(x, a));
-      const span = end - a;
       if (covered <= 0) cells.push('ok');
-      else if (covered >= span - 1000) cells.push('caida');
+      else if (covered >= end - a - 1000) cells.push('caida');
       else {
         cells.push('corte');
         cuts++;
       }
     }
-    const label = d === 6 ? 'Hoy' : day.toLocaleDateString('es', { weekday: 'short', day: 'numeric' });
-    out.push({ label, cells, cuts });
+    out.push({ label: d === 6 ? todayLabel : day.toLocaleDateString(tag, { weekday: 'short', day: 'numeric' }), cells, cuts });
   }
   return out;
 }

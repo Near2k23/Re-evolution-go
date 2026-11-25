@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { api, defaultApiUrl, loadSession } from '../api';
 import { useAuth } from '../auth';
+import { LanguageSelect, useI18n } from '../i18n';
 import { Icon, Logo } from '../components/ui';
 
 export default function Login() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const [apiUrl, setApiUrl] = useState(() => loadSession()?.apiUrl ?? defaultApiUrl());
   const [apiKey, setApiKey] = useState('');
   const [show, setShow] = useState(false);
@@ -22,7 +24,7 @@ export default function Login() {
       login({ apiUrl: url, apiKey: apiKey.trim() }, remember);
     } catch (err) {
       const status = (err as { status?: number }).status;
-      setError(status === 401 ? 'La clave global no es correcta.' : 'No se pudo conectar con el servidor. Revisa la dirección.');
+      setError(status === 401 ? t('login.wrongKey') : t('login.cantConnect'));
     } finally {
       setBusy(false);
     }
@@ -33,36 +35,39 @@ export default function Login() {
       <section className="hero">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 20, fontWeight: 650 }}>
           <Logo size={36} dark />
-          Enlace
+          {t('app.name')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <h1>Todas tus líneas de WhatsApp, en un solo lugar.</h1>
-          <p>Mira qué líneas siguen conectadas, cuáles volvieron solas tras un corte y cuáles necesitan que las vincules otra vez.</p>
+          <h1>{t('login.heroTitle')}</h1>
+          <p>{t('login.heroBody')}</p>
         </div>
         <div className="states">
-          <span><span className="dot" style={{ background: 'var(--ok)', width: 8, height: 8 }} />Conectadas</span>
-          <span><span className="dot" style={{ background: 'var(--back-soft)', width: 8, height: 8 }} />Reconectadas</span>
-          <span><span className="dot" style={{ background: '#F0714F', width: 8, height: 8 }} />Caídas</span>
+          <span><span className="dot" style={{ background: 'var(--ok)', width: 8, height: 8 }} />{t('state.conectada.title')}</span>
+          <span><span className="dot" style={{ background: 'var(--back-soft)', width: 8, height: 8 }} />{t('state.reconectada.title')}</span>
+          <span><span className="dot" style={{ background: '#F0714F', width: 8, height: 8 }} />{t('state.caida.title')}</span>
         </div>
       </section>
 
       <main>
         <form onSubmit={submit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={{ fontSize: 28 }}>Iniciar sesión</h2>
-            <p className="sub">Usa la dirección del servidor y su clave global.</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+              <h2 style={{ fontSize: 28 }}>{t('login.title')}</h2>
+              <p className="sub">{t('login.sub')}</p>
+            </div>
+            <LanguageSelect compact />
           </div>
 
           <label className="field">
-            Servidor
+            {t('login.server')}
             <input className="input mono" type="url" required value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} autoComplete="url" />
           </label>
 
           <label className="field">
-            Clave global
+            {t('login.key')}
             <span style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', borderRadius: 12, paddingRight: 4 }}>
               <input className="input" type={show ? 'text' : 'password'} required value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="GLOBAL_API_KEY" autoComplete="current-password" style={{ background: 'transparent' }} />
-              <button type="button" className="btn btn-icon" style={{ background: 'transparent', color: 'var(--ink-3)', height: 40, width: 40 }} onClick={() => setShow((v) => !v)} aria-label={show ? 'Ocultar clave' : 'Mostrar clave'} aria-pressed={show}>
+              <button type="button" className="btn btn-icon" style={{ background: 'transparent', color: 'var(--ink-3)', height: 40, width: 40 }} onClick={() => setShow((v) => !v)} aria-label={show ? t('login.hideKey') : t('login.showKey')} aria-pressed={show}>
                 <Icon name="ojo" />
               </button>
             </span>
@@ -70,19 +75,21 @@ export default function Login() {
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontSize: 14, color: 'var(--ink-2)' }}>
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#15171A' }} />
-            Recordar este servidor en este navegador
+            {t('login.remember')}
           </label>
 
-          {error && <div className="alert error" role="alert">{error}</div>}
+          {error && (
+            <div className="alert error" role="alert">
+              {error}
+            </div>
+          )}
 
           <button type="submit" className="btn btn-dark btn-block" style={{ height: 52, fontSize: 15 }} disabled={busy}>
-            {busy ? <span className="spinner" /> : 'Entrar'}
+            {busy ? <span className="spinner" /> : t('login.enter')}
           </button>
 
-          <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-            La clave global da acceso a todas las líneas del servidor. Para una sola línea, usa su token desde la integración.
-          </p>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-4)' }}>Basado en Evolution Go · Apache 2.0</p>
+          <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{t('login.keyHint')}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-4)' }}>{t('app.basedOn')}</p>
         </form>
       </main>
     </div>
