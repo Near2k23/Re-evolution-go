@@ -134,6 +134,9 @@ func (c *chatService) applyState(data *BodyStruct, instance *instance_model.Inst
 	if err != nil {
 		return "", err
 	}
+	if !client.IsLoggedIn() || client.Store == nil || client.Store.ID == nil {
+		return "", errors.New("instance is not logged in")
+	}
 	jid, err := target(data)
 	if err != nil {
 		return "", err
