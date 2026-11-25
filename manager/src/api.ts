@@ -77,6 +77,39 @@ export interface QrInfo {
   passkeyCode?: string;
 }
 
+export interface StoredChat {
+  jid: string;
+  name: string;
+  displayName: string;
+  isGroup: boolean;
+  lastMessageAt?: string;
+  lastMessageId?: string;
+  lastPreview: string;
+  lastType: string;
+  lastFromMe: boolean;
+  unread: number;
+  archived: boolean;
+  pinned: boolean;
+  mutedUntil?: string;
+}
+
+export interface StoredMessage {
+  id: string;
+  chat: string;
+  sender: string;
+  senderName?: string;
+  fromMe: boolean;
+  type: string;
+  text: string;
+  mime?: string;
+  fileName?: string;
+  quotedId?: string;
+  status: 'received' | 'sent' | 'delivered' | 'read' | 'played';
+  edited: boolean;
+  deleted: boolean;
+  timestamp: string;
+}
+
 const KEY = 'enlace.session';
 
 export interface Session {
@@ -170,6 +203,13 @@ export const api = {
   createGroup: (name: string, color: string) => request<Wrapped<Group>>('POST', '/line-groups', { body: { name, color } }).then((r) => r.data),
   updateGroup: (id: string, name: string, color: string) => request<Wrapped<Group>>('PUT', `/line-groups/${id}`, { body: { name, color } }).then((r) => r.data),
   deleteGroup: (id: string) => request('DELETE', `/line-groups/${id}`),
+  storeStatus: (id: string) => request<Wrapped<{ enabled: boolean; history: boolean; retentionDays: number }>>('GET', `/store/${id}/status`).then((r) => r.data),
+  chats: (id: string, q = '', archived = false) =>
+    request<Wrapped<StoredChat[]>>('GET', `/store/${id}/chats?limit=100&archived=${archived}&q=${encodeURIComponent(q)}`).then((r) => r.data ?? []),
+  messages: (id: string, chat: string, before?: string) =>
+    request<Wrapped<StoredMessage[]>>('GET', `/store/${id}/messages?limit=50&chat=${encodeURIComponent(chat)}${before ? `&before=${encodeURIComponent(before)}` : ''}`).then((r) => r.data ?? []),
+  markRead: (id: string, chat: string) => request('POST', `/store/${id}/read`, { body: { chat } }),
+  sendText: (token: string, number: string, text: string) => request('POST', '/send/text', { key: token, body: { number, text } }),
   assignGroup: (instanceIds: string[], groupId: string) => request('POST', '/line-groups/assign', { body: { instanceIds, groupId } }),
 
   // Con el token de la línea.

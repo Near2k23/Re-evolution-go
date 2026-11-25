@@ -138,6 +138,24 @@ make manager-dev       # desarrollo con Vite en :5173 (indica el servidor en el 
 La imagen Docker compila el manager en su propio stage; `manager/dist` no se
 versiona.
 
+## Historial de chats
+
+Con `CHAT_STORE_ENABLED=true` (por defecto) cada línea guarda sus chats,
+contactos y mensajes en Postgres: lo que recibe, lo que envía por la API y el
+historial que WhatsApp manda al vincularla. Se consulta en el manager (Chats)
+o por la API, con la clave global o el token de la línea:
+
+| Método | Ruta | Uso |
+|---|---|---|
+| GET | `/store/:instanceId/chats?q=&archived=&before=&limit=` | Chats, fijados primero |
+| GET | `/store/:instanceId/messages?chat=<jid>&before=&limit=` | Mensajes, del más nuevo al más antiguo |
+| GET | `/store/:instanceId/messages/:messageId` | Un mensaje con su JSON original |
+| GET | `/store/:instanceId/contacts?q=` | Contactos conocidos |
+| POST | `/store/:instanceId/read` `{"chat":"<jid>"}` | Marca leído y envía los acuses |
+
+Los mensajes se borran pasados `CHAT_STORE_RETENTION_DAYS` días (90 por
+defecto; 0 = nunca).
+
 ---
 
 ## API Documentation

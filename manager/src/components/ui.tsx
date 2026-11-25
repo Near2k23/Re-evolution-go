@@ -22,6 +22,8 @@ const PATHS: Record<string, string> = {
   recargar: 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6',
   lapiz: 'M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z',
   papelera: 'M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  enviar: 'M5 12h13M13 6l6 6-6 6',
+  chats: 'M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-5 4V6a1 1 0 0 1 1-1z',
 };
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
@@ -118,6 +120,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const nav = [
     { to: '/', label: t('nav.panel'), icon: 'panel', end: true },
     { to: '/lineas', label: t('nav.lines'), icon: 'lineas', end: false },
+    { to: '/chats', label: t('nav.chats'), icon: 'chats', end: false },
     { to: '/grupos', label: t('nav.groups'), icon: 'grupos', end: false },
     { to: '/eventos', label: t('nav.events'), icon: 'eventos', end: false },
   ];
