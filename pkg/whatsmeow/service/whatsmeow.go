@@ -2272,6 +2272,10 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 			return
 		}
 		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
+	} else {
+		// Las conexiones /ws con la clave global (monitor del manager) reciben los
+		// eventos de todas las líneas, aunque la línea no tenga WebSocket activado.
+		_ = w.websocketProducer.Produce(queueName, jsonData, "", instance.Token)
 	}
 
 	if instance.Webhook != "" && instance.Webhook != "disabled" {

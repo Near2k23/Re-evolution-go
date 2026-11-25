@@ -226,13 +226,6 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		c.Next()
 	})
 
-	// El fork no usa licencia. El manager compilado consulta /license/status al
-	// iniciar sesión y pide activar si no recibe "active"; este stub se quita al
-	// reemplazar el manager (Fase 4).
-	r.GET("/license/status", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "active"})
-	})
-
 	// Passkey ceremony routes — PUBLIC (called by the browser extension from the
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
 	passkey_handler.RegisterRoutes(r, whatsmeowService)
