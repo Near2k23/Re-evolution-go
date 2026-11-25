@@ -120,7 +120,15 @@ func (p httpProvider) Reply(ctx context.Context, b *Bot, s *Session, in Input) (
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("%s: %s", resp.Status, truncate(string(data), 300))
 	}
-	return &Output{Replies: ParseHTTPReply(data)}, nil
+	return &Output{Replies: ParseHTTPReply(data), End: httpWantsEnd(data)}, nil
+}
+
+// httpWantsEnd indica si la respuesta pide cerrar la sesión ({"end": true}).
+func httpWantsEnd(data []byte) bool {
+	var x struct {
+		End bool `json:"end"`
+	}
+	return json.Unmarshal(bytes.TrimSpace(data), &x) == nil && x.End
 }
 
 // ParseHTTPReply entiende las respuestas habituales: texto plano; un objeto con

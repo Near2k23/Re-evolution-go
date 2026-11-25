@@ -19,11 +19,11 @@ var in = Input{InstanceID: "i1", RemoteJID: "573001112233@s.whatsapp.net", PushN
 
 func TestParseHTTPReply(t *testing.T) {
 	cases := map[string][]string{
-		`texto plano`:                          {"texto plano"},
-		`{"message":"hola"}`:                   {"hola"},
-		`[{"output":"uno"},{"output":"dos"}]`:  {"uno", "dos"},
-		`{"messages":["a","b"]}`:               {"a", "b"},
-		`{"data":{"answer":"x"}}`:              {"x"},
+		`texto plano`:                         {"texto plano"},
+		`{"message":"hola"}`:                  {"hola"},
+		`[{"output":"uno"},{"output":"dos"}]`: {"uno", "dos"},
+		`{"messages":["a","b"]}`:              {"a", "b"},
+		`{"data":{"answer":"x"}}`:             {"x"},
 		`{"mediaUrl":"https://x/y.jpg","mediaType":"image","caption":"c"}`: {"c"},
 	}
 	for body, want := range cases {
@@ -153,5 +153,14 @@ func TestFlowise(t *testing.T) {
 	out, err := flowiseProvider{}.Reply(context.Background(), botWith(TypeFlowise, FlowiseConfig{APIURL: srv.URL}), &Session{ID: "s"}, in)
 	if err != nil || out.Replies[0].Text != "respuesta flowise" {
 		t.Fatalf("out=%+v err=%v", out, err)
+	}
+}
+
+func TestHTTPWantsEnd(t *testing.T) {
+	if !httpWantsEnd([]byte(`{"message":"bye","end":true}`)) {
+		t.Fatal("expected end")
+	}
+	if httpWantsEnd([]byte(`{"message":"hi"}`)) || httpWantsEnd([]byte(`[{"output":"x"}]`)) || httpWantsEnd([]byte("plain")) {
+		t.Fatal("unexpected end")
 	}
 }
