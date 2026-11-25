@@ -204,7 +204,7 @@ export default function WebhookTab({ line }: { line: Line }) {
               <span className={`ev-chip ${d.ok ? 'ok' : 'down'}`}>{d.statusCode || '—'}</span>
               <span style={{ fontSize: 13.5, fontWeight: 600, width: 130, flexShrink: 0 }}>{d.test ? 'Test' : d.event}</span>
               <span className="muted" style={{ fontSize: 13, flex: '1 1 200px', minWidth: 0 }}>
-                {t('webhook.attempts', { n: d.attempts })} · {i.num(d.durationMs)} ms{d.error ? ` · ${d.error}` : ''}
+                {i.tp('webhook.attempts', d.attempts)} · {i.num(d.durationMs)} ms{d.error ? ` · ${d.error}` : ''}
               </span>
             </div>
           ))}
