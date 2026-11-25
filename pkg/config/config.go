@@ -243,9 +243,13 @@ func Load() *Config {
 		webhookFiles = "true"
 	}
 
+	// En el fork, reconectar al arrancar es el comportamiento por defecto: sin
+	// esto, cada reinicio o despliegue deja caídas las líneas que estaban
+	// conectadas hasta que alguien llama /instance/reconnect. Solo se desactiva
+	// con CONNECT_ON_STARTUP=false explícito.
 	connectOnStartup := os.Getenv(config_env.CONNECT_ON_STARTUP)
 	if connectOnStartup == "" {
-		connectOnStartup = "false"
+		connectOnStartup = "true"
 	}
 
 	osName := os.Getenv(config_env.OS_NAME)
