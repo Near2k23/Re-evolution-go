@@ -154,10 +154,15 @@ func Observe(instanceID string, cli *whatsmeow.Client, evt interface{}) {
 		return
 	}
 	switch e := evt.(type) {
+	// Se copian los eventos: el manejador de upstream modifica evt.Info (Sender,
+	// Chat) después de llamar a Observe, mientras la cola aún no lo procesó.
 	case *events.Message:
-		s.enqueue(func() { s.saveMessage(instanceID, e, false) })
+		cp := *e
+		s.enqueue(func() { s.saveMessage(instanceID, &cp, false) })
 	case *events.Receipt:
-		s.enqueue(func() { s.receipt(instanceID, e) })
+		cp := *e
+		cp.MessageIDs = append([]types.MessageID(nil), e.MessageIDs...)
+		s.enqueue(func() { s.receipt(instanceID, &cp) })
 	case *events.HistorySync:
 		if s.cfg.History && cli != nil {
 			s.enqueue(func() { s.history(instanceID, cli, e) })
