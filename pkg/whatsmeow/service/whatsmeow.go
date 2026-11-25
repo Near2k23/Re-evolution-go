@@ -2189,132 +2189,49 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 
 	w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] subscriptions %s eventType %s", instance.Id, subscriptions, eventType)
 
-	switch eventType {
-	case "Message":
-		if contains(subscriptions, "MESSAGE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		} else {
-			// Forward to GROUP/NEWSLETTER subscribers even without MESSAGE subscription
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if infoMap, ok := dataMap["Info"].(map[string]interface{}); ok {
-					if chat, ok := infoMap["Chat"].(string); ok {
-						if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						}
-					}
-				}
-			}
-		}
-	case "SendMessage":
-		if contains(subscriptions, "SEND_MESSAGE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		} else {
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if infoMap, ok := dataMap["Info"].(map[string]interface{}); ok {
-					if chat, ok := infoMap["Chat"].(string); ok {
-						if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						}
-					}
-				}
-			}
-		}
-	case "Receipt":
-		if contains(subscriptions, "READ_RECEIPT") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		} else {
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if chat, ok := dataMap["Chat"].(string); ok {
-					if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-						w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-						w.sendToQueueOrWebhook(instance, queueName, jsonData)
-					} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-						w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-						w.sendToQueueOrWebhook(instance, queueName, jsonData)
-					}
-				}
-			}
-		}
-	case "Presence":
-		if contains(subscriptions, "PRESENCE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "HistorySync":
-		if contains(subscriptions, "HISTORY_SYNC") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "ChatPresence", "Archive":
-		if contains(subscriptions, "CHAT_PRESENCE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-		if contains(subscriptions, "CALL") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-		if contains(subscriptions, "CONNECTION") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-		if contains(subscriptions, "LABEL") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "Contact", "PushName":
-		if contains(subscriptions, "CONTACT") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "Picture":
-		if contains(subscriptions, "PICTURE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "UserAbout":
-		if contains(subscriptions, "USER_ABOUT") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "GroupInfo", "JoinedGroup":
-		if contains(subscriptions, "GROUP") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "NewsletterJoin", "NewsletterLeave":
-		if contains(subscriptions, "NEWSLETTER") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "QRCode", "QRTimeout", "QRSuccess":
-		if contains(subscriptions, "QRCODE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-	case "ButtonClick":
-		if contains(subscriptions, "BUTTON_CLICK") || contains(subscriptions, "MESSAGE") {
-			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
-			w.sendToQueueOrWebhook(instance, queueName, jsonData)
-		}
-
-	default:
+	group := eventGroupFor(eventType)
+	if group == "" {
 		return
 	}
+
+	if contains(subscriptions, group) || (eventType == "ButtonClick" && contains(subscriptions, event_types.MESSAGE)) {
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+		w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		return
+	}
+
+	// Mensajes, envíos y acuses de grupos o canales llegan también a quien se
+	// suscribe a GROUP o NEWSLETTER aunque no tenga MESSAGE/SEND_MESSAGE/READ_RECEIPT.
+	switch eventType {
+	case "Message", "SendMessage", "Receipt":
+		chat := chatFromEventData(data, eventType)
+		if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, event_types.GROUP) {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, event_types.NEWSLETTER) {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		}
+	}
+}
+
+// chatFromEventData lee el chat del payload: data.Info.Chat en Message y
+// SendMessage, data.Chat en Receipt.
+func chatFromEventData(data map[string]interface{}, eventType string) string {
+	dataMap, ok := data["data"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if eventType == "Receipt" {
+		chat, _ := dataMap["Chat"].(string)
+		return chat
+	}
+	infoMap, ok := dataMap["Info"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	chat, _ := infoMap["Chat"].(string)
+	return chat
 }
 
 func contains(subscriptions []string, event string) bool {
@@ -2537,40 +2454,8 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 			// Fallback para AMQP_GLOBAL_EVENTS (modo antigo com grupos de eventos)
 			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Using AMQP_GLOBAL_EVENTS (fallback mode)", userId)
 
-			// Mapeia o evento do Whatsmeow para o tipo de evento global
-			var globalEventType string
-			switch eventType {
-			case "Message":
-				globalEventType = "MESSAGE"
-			case "SendMessage":
-				globalEventType = "SEND_MESSAGE"
-			case "Receipt":
-				globalEventType = "READ_RECEIPT"
-			case "Presence":
-				globalEventType = "PRESENCE"
-			case "HistorySync":
-				globalEventType = "HISTORY_SYNC"
-			case "ChatPresence", "Archive":
-				globalEventType = "CHAT_PRESENCE"
-			case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-				globalEventType = "CALL"
-			case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-				globalEventType = "CONNECTION"
-			case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-				globalEventType = "LABEL"
-			case "Contact", "PushName":
-				globalEventType = "CONTACT"
-			case "Picture":
-				globalEventType = "PICTURE"
-			case "UserAbout":
-				globalEventType = "USER_ABOUT"
-			case "GroupInfo", "JoinedGroup":
-				globalEventType = "GROUP"
-			case "NewsletterJoin", "NewsletterLeave":
-				globalEventType = "NEWSLETTER"
-			case "QRCode", "QRTimeout", "QRSuccess":
-				globalEventType = "QRCODE"
-			default:
+			globalEventType := eventGroupFor(eventType)
+			if globalEventType == "" {
 				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
 				return
 			}
@@ -2599,38 +2484,7 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 
 	// NATS: Mantém o comportamento original por enquanto (só NATS_GLOBAL_EVENTS)
 	if w.config.NatsGlobalEnabled {
-		// Mapeia o evento para grupo (necessário para NATS por enquanto)
-		var globalEventType string
-		switch eventType {
-		case "Message":
-			globalEventType = "MESSAGE"
-		case "SendMessage":
-			globalEventType = "SEND_MESSAGE"
-		case "Receipt":
-			globalEventType = "READ_RECEIPT"
-		case "Presence":
-			globalEventType = "PRESENCE"
-		case "HistorySync":
-			globalEventType = "HISTORY_SYNC"
-		case "ChatPresence", "Archive":
-			globalEventType = "CHAT_PRESENCE"
-		case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-			globalEventType = "CALL"
-		case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-			globalEventType = "CONNECTION"
-		case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-			globalEventType = "LABEL"
-		case "Contact", "PushName":
-			globalEventType = "CONTACT"
-		case "GroupInfo", "JoinedGroup":
-			globalEventType = "GROUP"
-		case "NewsletterJoin", "NewsletterLeave":
-			globalEventType = "NEWSLETTER"
-		case "QRCode", "QRTimeout", "QRSuccess":
-			globalEventType = "QRCODE"
-		default:
-			globalEventType = ""
-		}
+		globalEventType := eventGroupFor(eventType)
 
 		// Verifica se o evento está na lista de eventos globais NATS
 		if globalEventType != "" && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
