@@ -46,7 +46,6 @@ Evolution Go is one of the messaging engines maintained by Evolution Foundation.
 - **Media support** — images, videos, audio, documents with MinIO/S3 storage
 - **Message storage** — optional PostgreSQL persistence
 - **QR code pairing** — built-in QR code generation for device linking
-- **License management** — built-in licensing with registration, activation, and heartbeat
 - **Docker ready** — production-ready Docker configuration
 
 ---
@@ -119,17 +118,12 @@ LOG_TYPE=console
 
 ---
 
-## License Activation
+## Sin activación de licencia (fork)
 
-Evolution Go requires a license to operate. On first run:
-
-1. Start the server — API endpoints return `503` until activated
-2. Open the **Manager** at `http://localhost:8080/manager/login`
-3. Enter your API URL and `GLOBAL_API_KEY`
-4. Complete the license registration flow
-5. Once activated, the API is fully operational
-
-The license status persists in the database (`runtime_configs` table). Heartbeats are sent periodically to maintain activation.
+Este fork no incluye el gate de licencia de upstream: la API funciona sin
+registrar ni activar nada y no se comunica con servidores de licencias.
+`GET /license/status` existe solo para que el manager compilado actual no pida
+activación; se quitará al reemplazar el manager.
 
 ---
 
@@ -160,7 +154,6 @@ http://localhost:8080/swagger/index.html
 evolution-go/
 ├── cmd/evolution-go/     # Application entry point
 ├── pkg/
-│   ├── core/            # License management & middleware
 │   ├── instance/        # Instance management
 │   ├── message/         # Message handling
 │   ├── sendMessage/     # Message sending
