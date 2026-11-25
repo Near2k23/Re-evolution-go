@@ -96,8 +96,8 @@ POSTGRES_USERS_DB=postgresql://postgres:password@localhost:5432/evogo_users?sslm
 DATABASE_SAVE_MESSAGES=false
 
 # Logging
-WADEBUG=DEBUG
-LOGTYPE=console
+DEBUG_ENABLED=DEBUG
+LOG_TYPE=console
 
 # Optional
 # AMQP_URL=amqp://guest:guest@localhost:5672/
@@ -115,7 +115,7 @@ LOGTYPE=console
 | `CLIENT_NAME` | Client identifier | `evolution` |
 | `GLOBAL_API_KEY` | API authentication key | **Required** |
 | `DATABASE_SAVE_MESSAGES` | Enable message storage | `false` |
-| `WADEBUG` | WhatsApp debug level | `INFO` |
+| `DEBUG_ENABLED` | WhatsApp debug level (legacy alias: `WADEBUG`) | `INFO` |
 
 ---
 

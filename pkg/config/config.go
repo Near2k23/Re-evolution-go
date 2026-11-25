@@ -234,9 +234,17 @@ func Load() *Config {
 
 	clientName := os.Getenv(config_env.CLIENT_NAME)
 
+	// WADEBUG y LOGTYPE son los nombres que traían .env.example y los compose
+	// de ejemplo; se aceptan como respaldo de DEBUG_ENABLED y LOG_TYPE.
 	waDebug := os.Getenv(config_env.WA_DEBUG)
+	if waDebug == "" {
+		waDebug = os.Getenv(config_env.WA_DEBUG_LEGACY)
+	}
 
 	logType := os.Getenv(config_env.LOGTYPE)
+	if logType == "" {
+		logType = os.Getenv(config_env.LOGTYPE_LEGACY)
+	}
 
 	webhookFiles := os.Getenv(config_env.WEBHOOKFILES)
 	if webhookFiles == "" {

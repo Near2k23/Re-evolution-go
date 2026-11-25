@@ -12,6 +12,8 @@ const (
 	GLOBAL_API_KEY          = "GLOBAL_API_KEY"
 	WA_DEBUG                = "DEBUG_ENABLED"
 	LOGTYPE                 = "LOG_TYPE"
+	WA_DEBUG_LEGACY         = "WADEBUG"
+	LOGTYPE_LEGACY          = "LOGTYPE"
 	WEBHOOKFILES            = "WEBHOOK_FILES"
 	CONNECT_ON_STARTUP      = "CONNECT_ON_STARTUP"
 	OS_NAME                 = "OS_NAME"
