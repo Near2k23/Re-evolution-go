@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
+	chatstore_handler "github.com/evolution-foundation/evolution-go/pkg/chatstore/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
@@ -209,6 +211,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 	connlog.SetDefault(connRepo)
 
+	// Chats, contactos y mensajes (CHAT_STORE_*).
+	chatStore := chatstore.New(db, chatstore.ConfigFromEnv())
+	if chatStore.Config().Enabled {
+		if err := chatStore.Migrate(); err != nil {
+			log.Fatal("Failed to migrate chat store: ", err)
+		}
+		chatStore.Start(context.Background())
+	}
+	chatstore.SetDefault(chatStore)
+
 	groupRepo := linegroups.NewRepository(db)
 	if err := groupRepo.Migrate(); err != nil {
 		log.Fatal("Failed to migrate line_groups: ", err)
@@ -238,6 +250,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
 	linegroups.Register(r, authMiddleware, groupRepo)
+	chatstore_handler.Register(r, authMiddleware, chatStore, func(id string) *whatsmeow.Client { return clientPointer[id] })
 
 	routes.NewRouter(
 		authMiddleware,

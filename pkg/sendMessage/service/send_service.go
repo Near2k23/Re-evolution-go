@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -2790,6 +2791,9 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		ServerID:  response.ServerID,
 		Type:      messageType,
 	}
+
+	// Historial de chats del fork (pkg/chatstore).
+	chatstore.ObserveSent(instance.Id, messageInfo, msg)
 
 	messageSent := &MessageSendStruct{
 		Info:    messageInfo,

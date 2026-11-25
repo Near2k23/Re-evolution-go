@@ -171,6 +171,13 @@ func (i *instanceRepository) Delete(instanceId string) error {
 			return fmt.Errorf("erro ao deletar grupo da linha: %v", err)
 		}
 
+		// Chats, contactos y mensajes guardados (tablas de pkg/chatstore).
+		for _, table := range []string{"chat_store_messages", "chat_store_chats", "chat_store_contacts"} {
+			if err := tx.Exec("DELETE FROM "+table+" WHERE instance_id = ?", instanceId).Error; err != nil {
+				return fmt.Errorf("erro ao deletar %s: %v", table, err)
+			}
+		}
+
 		// Deleta a instância
 		if err := tx.Where("id = ?", instanceId).Delete(&instance_model.Instance{}).Error; err != nil {
 			return fmt.Errorf("erro ao deletar instância: %v", err)
