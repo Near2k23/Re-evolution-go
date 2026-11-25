@@ -103,6 +103,13 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/disconnect", r.instanceHandler.Disconnect)
 			routes.POST("/reconnect", r.instanceHandler.Reconnect)
 			routes.DELETE("/logout", r.instanceHandler.Logout)
+		}
+	}
+
+	routes = eng.Group("/instance")
+	{
+		routes.Use(r.authMiddleware.AuthInstanceOrAdmin)
+		{
 			routes.GET("/:instanceId/advanced-settings", r.instanceHandler.GetAdvancedSettings)
 			routes.PUT("/:instanceId/advanced-settings", r.instanceHandler.UpdateAdvancedSettings)
 		}

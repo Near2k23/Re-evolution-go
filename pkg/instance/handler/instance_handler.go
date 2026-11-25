@@ -607,6 +607,11 @@ func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
 		return
 	}
 
+	if !canAccessInstance(c, instanceId) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
 	settings, err := h.instanceService.GetAdvancedSettings(instanceId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -637,6 +642,11 @@ func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
 		return
 	}
 
+	if !canAccessInstance(c, instanceId) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
 	var settings instance_model.AdvancedSettings
 	if err := c.ShouldBindJSON(&settings); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -653,6 +663,26 @@ func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
 		"message":  "Advanced settings updated successfully",
 		"settings": settings,
 	})
+}
+
+// canAccessInstance permite el acceso con la clave global o cuando el token
+// autenticado pertenece a la misma instancia que instanceId.
+func canAccessInstance(c *gin.Context, instanceId string) bool {
+	if isAdmin, ok := c.Get("isAdmin"); ok && isAdmin == true {
+		return true
+	}
+
+	value, ok := c.Get("instance")
+	if !ok {
+		return false
+	}
+
+	instance, ok := value.(*instance_model.Instance)
+	if !ok || instance == nil {
+		return false
+	}
+
+	return instance.Id == instanceId
 }
 
 func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {
