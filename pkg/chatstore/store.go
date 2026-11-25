@@ -202,8 +202,15 @@ func Observe(instanceID string, cli *whatsmeow.Client, evt interface{}) {
 			s.enqueue(func() { s.chatFlag(instanceID, e.JID, map[string]interface{}{"muted_until": until}) })
 		}
 	case *events.MarkChatAsRead:
-		if e.Action != nil && e.Action.GetRead() {
-			s.enqueue(func() { s.chatFlag(instanceID, e.JID, map[string]interface{}{"unread_count": 0}) })
+		if e.Action != nil {
+			if e.Action.GetRead() {
+				s.enqueue(func() { s.chatFlag(instanceID, e.JID, map[string]interface{}{"unread_count": 0}) })
+			} else {
+				// «Marcar como no leído» deja al menos 1 pendiente, como en el teléfono.
+				s.enqueue(func() {
+					s.chatFlag(instanceID, e.JID, map[string]interface{}{"unread_count": gorm.Expr("GREATEST(unread_count, 1)")})
+				})
+			}
 		}
 	case *events.DeleteForMe:
 		s.enqueue(func() {

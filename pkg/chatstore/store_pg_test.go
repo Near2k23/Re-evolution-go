@@ -1,12 +1,14 @@
 package chatstore
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waSyncAction"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
@@ -112,6 +114,36 @@ func TestPGFlujoCompleto(t *testing.T) {
 	if err != nil || len(unread) != 1 || unread[0].MessageID != "C1" {
 		t.Fatalf("MarkRead = %+v, err %v", unread, err)
 	}
+
+	// LastOf da el último mensaje; «no leído» deja 1 pendiente y «leído» lo vuelve a 0.
+	SetDefault(s)
+	defer SetDefault(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+	if last, ok := LastOf(inst, peer.String()); !ok || last.ID != "C1" {
+		t.Fatalf("LastOf = %+v %v", last, ok)
+	}
+	unreadNow := func() int {
+		cs, _ := s.GetChat(inst, peer.String())
+		return cs[0].UnreadCount
+	}
+	waitUnread := func(want int) {
+		t.Helper()
+		for i := 0; i < 50 && unreadNow() != want; i++ {
+			time.Sleep(20 * time.Millisecond)
+		}
+		if got := unreadNow(); got != want {
+			t.Fatalf("unread = %d, want %d", got, want)
+		}
+	}
+	mark := func(read bool) {
+		Observe(inst, nil, &events.MarkChatAsRead{JID: peer, Action: &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(read)}})
+	}
+	mark(false)
+	waitUnread(1)
+	mark(true)
+	waitUnread(0)
 
 	// Búsqueda y contactos.
 	if found, _ := s.ListChats(inst, "ana", false, 50, nil); len(found) != 1 {
