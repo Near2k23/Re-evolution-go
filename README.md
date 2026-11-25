@@ -138,6 +138,26 @@ make manager-dev       # desarrollo con Vite en :5173 (indica el servidor en el 
 La imagen Docker compila el manager en su propio stage; `manager/dist` no se
 versiona.
 
+## Webhooks
+
+Cada línea tiene su URL y sus eventos (los fija `/instance/connect`) y, además,
+una configuración propia en `GET/PUT /webhook/:instanceId`:
+
+- **Cabeceras adicionales** (por ejemplo `Authorization`).
+- **Una URL por evento** (`byEvents`): el evento se añade a la ruta en
+  kebab-case (`…/message`, `…/send-message`, `…/connected`).
+- **Firma:** con un secreto (`"secret": "new"` lo genera y lo devuelve una sola
+  vez), cada envío lleva `X-Webhook-Timestamp` y
+  `X-Webhook-Signature: sha256=<hex>`, donde el hex es
+  `HMAC_SHA256(secreto, timestamp + "." + cuerpo)`.
+- Siempre llegan `X-Webhook-Event` y `X-Webhook-Delivery` (ID único, útil para
+  descartar duplicados).
+
+Los envíos fallidos se reintentan con espera creciente (1 s, 2 s, 4 s… hasta
+60 s; los 4xx no se reintentan salvo 408, 425 y 429). Las entregas se
+registran (`GET /webhook/:instanceId/deliveries`) y `POST
+/webhook/:instanceId/test` envía un evento `Test`.
+
 ## Historial de chats
 
 Con `CHAT_STORE_ENABLED=true` (por defecto) cada línea guarda sus chats,

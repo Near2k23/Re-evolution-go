@@ -34,6 +34,9 @@ export default function Panel() {
     .sort((a, b) => (b.lastEventAt ?? '').localeCompare(a.lastEventAt ?? ''))
     .slice(0, 6);
   const total = Math.max(lines.length, 1);
+  const hookOk = lines.reduce((a, l) => a + (l.webhookOk24h ?? 0), 0);
+  const hookFailed = lines.reduce((a, l) => a + (l.webhookFailed24h ?? 0), 0);
+  const hookTotal = hookOk + hookFailed;
   const pct = (n: number) => new Intl.NumberFormat(i.tag, { maximumFractionDigits: 1 }).format(n);
 
   return (
@@ -65,6 +68,11 @@ export default function Panel() {
           <span className="label">{t('panel.cuts')}</span>
           <span className="value">{i.num(cuts)}</span>
           <span className="hint">{cuts === 0 ? t('panel.noCuts') : tp('panel.recovered', recovered)}</span>
+        </div>
+        <div className="stat">
+          <span className="label">{t('panel.delivered')}</span>
+          <span className="value">{hookTotal ? pct((hookOk / hookTotal) * 100) + ' %' : '—'}</span>
+          <span className="hint">{hookTotal ? t('panel.deliveredHint', { failed: i.num(hookFailed), ok: i.num(hookOk) }) : t('panel.noDeliveries')}</span>
         </div>
         <div className={noHook.length ? 'stat warn' : 'stat'}>
           <span className="label">{t('panel.noHook')}</span>

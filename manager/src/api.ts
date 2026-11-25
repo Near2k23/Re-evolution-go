@@ -25,6 +25,41 @@ export interface Line {
   lastEventAt?: string;
   hours: ('ok' | 'corte' | 'caida')[];
   groupId?: string;
+  webhookOk24h: number;
+  webhookFailed24h: number;
+}
+
+export interface WebhookInfo {
+  url: string;
+  events: string[] | null;
+  headers: Record<string, string>;
+  byEvents: boolean;
+  hasSecret: boolean;
+  secret?: string;
+  stats24h: { ok: number; failed: number };
+  globalUrl: boolean;
+  retry: { maxAttempts: number; baseDelayMs: number; timeoutMs: number };
+}
+
+export interface Delivery {
+  id: number;
+  event: string;
+  url: string;
+  statusCode: number;
+  attempts: number;
+  durationMs: number;
+  error?: string;
+  ok: boolean;
+  test: boolean;
+  at: string;
+}
+
+export interface ProxyInfo {
+  protocol: string;
+  host: string;
+  port: string;
+  username: string;
+  hasPassword: boolean;
 }
 
 export interface Group {
@@ -55,6 +90,7 @@ export interface AdvancedSettings {
   readMessages: boolean;
   ignoreGroups: boolean;
   ignoreStatus: boolean;
+  readStatus: boolean;
 }
 
 export interface InstanceInfo {
@@ -211,6 +247,14 @@ export const api = {
     request<Wrapped<StoredMessage[]>>('GET', `/store/${id}/messages?limit=50&chat=${encodeURIComponent(chat)}${before ? `&before=${encodeURIComponent(before)}` : ''}`).then((r) => r.data ?? []),
   markRead: (id: string, chat: string) => request('POST', `/store/${id}/read`, { body: { chat } }),
   sendText: (token: string, number: string, text: string) => request('POST', '/send/text', { key: token, body: { number, text } }),
+  webhook: (id: string) => request<Wrapped<WebhookInfo>>('GET', `/webhook/${id}`).then((r) => r.data),
+  saveWebhook: (id: string, body: { headers: Record<string, string>; byEvents: boolean; secret: 'keep' | 'new' | 'remove' }) =>
+    request<Wrapped<WebhookInfo>>('PUT', `/webhook/${id}`, { body }).then((r) => r.data),
+  testWebhook: (id: string) => request<Wrapped<{ ok: boolean; statusCode: number; durationMs: number; error?: string; url: string }>>('POST', `/webhook/${id}/test`).then((r) => r.data),
+  deliveries: (id: string) => request<Wrapped<Delivery[]>>('GET', `/webhook/${id}/deliveries?limit=30`).then((r) => r.data ?? []),
+  proxy: (id: string) => request<Wrapped<ProxyInfo | null>>('GET', `/instance/proxy/${id}`).then((r) => r.data),
+  setProxy: (id: string, p: { protocol: string; host: string; port: string; username: string; password: string }) => request('POST', `/instance/proxy/${id}`, { body: p }),
+  removeProxy: (id: string) => request('DELETE', `/instance/proxy/${id}`),
   assignGroup: (instanceIds: string[], groupId: string) => request('POST', '/line-groups/assign', { body: { instanceIds, groupId } }),
 
   // Con el token de la línea.

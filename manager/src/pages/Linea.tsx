@@ -4,11 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type AdvancedSettings, type ConnectionEvent, type Group, type Line } from '../api';
 import { useI18n, type Key } from '../i18n';
 import { describe, eventsList, formatPhone, stateLabel } from '../format';
+import WebhookTab from '../components/WebhookTab';
+import ProxyCard from '../components/ProxyCard';
 import { Avatar, ErrorBox, Icon, Loading, NotFound, StatePill, useGroups, useOverview, useReconnect, useToast } from '../components/ui';
 
 type Tab = 'resumen' | 'ajustes' | 'webhook' | 'registro';
 
-const EVENT_KEYS = ['MESSAGE', 'SEND_MESSAGE', 'READ_RECEIPT', 'CONNECTION', 'QRCODE', 'CALL', 'GROUP', 'LABEL', 'CONTACT', 'PRESENCE', 'CHAT_PRESENCE', 'HISTORY_SYNC', 'NEWSLETTER', 'BUTTON_CLICK'];
 const KIND_CLASS: Record<string, string> = {
   connected: 'ok',
   pair_success: 'ok',
@@ -55,8 +56,13 @@ export default function Linea() {
         ))}
       </div>
       {tab === 'resumen' && <Resumen line={line} groups={groups} onWebhook={() => setTab('webhook')} />}
-      {tab === 'ajustes' && <Ajustes line={line} />}
-      {tab === 'webhook' && <Webhook line={line} />}
+      {tab === 'ajustes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Ajustes line={line} />
+          <ProxyCard line={line} />
+        </div>
+      )}
+      {tab === 'webhook' && <WebhookTab line={line} />}
       {tab === 'registro' && <Registro line={line} />}
     </>
   );
@@ -280,7 +286,7 @@ function Ajustes({ line }: { line: Line }) {
 
   if (q.isLoading || !s) return q.error ? <ErrorBox error={q.error} /> : <Loading />;
 
-  const items: (keyof AdvancedSettings)[] = ['alwaysOnline', 'rejectCall', 'readMessages', 'ignoreGroups', 'ignoreStatus'];
+  const items: (keyof AdvancedSettings)[] = ['alwaysOnline', 'rejectCall', 'readMessages', 'readStatus', 'ignoreGroups', 'ignoreStatus'];
   const dirty = JSON.stringify(s) !== JSON.stringify(q.data);
 
   async function save() {
@@ -328,73 +334,6 @@ function Ajustes({ line }: { line: Line }) {
             {t('common.discard')}
           </button>
         )}
-      </div>
-    </section>
-  );
-}
-
-function Webhook({ line }: { line: Line }) {
-  const { t } = useI18n();
-  const toast = useToast();
-  const qc = useQueryClient();
-  const info = useQuery({ queryKey: ['info', line.id], queryFn: () => api.info(line.id) });
-  const [url, setUrl] = useState(line.webhook);
-  const [events, setEvents] = useState<string[]>(() => eventsList(line.events));
-  const [saving, setSaving] = useState(false);
-  const dirty = url !== line.webhook || events.slice().sort().join() !== eventsList(line.events).sort().join();
-
-  async function save() {
-    if (!info.data) return;
-    setSaving(true);
-    try {
-      await api.connect(line.token, {
-        webhookUrl: url.trim(),
-        subscribe: events.length ? events : ['MESSAGE'],
-        rabbitmqEnable: info.data.rabbitmqEnable ?? '',
-        websocketEnable: info.data.websocketEnable ?? '',
-        natsEnable: info.data.natsEnable ?? '',
-      });
-      await qc.invalidateQueries({ queryKey: ['overview'] });
-      await qc.invalidateQueries({ queryKey: ['info', line.id] });
-      toast(t('webhook.saved'));
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('common.saveFailed'));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <section className="card">
-      {!line.webhook && <div className="alert warn">{t('webhook.missing')}</div>}
-      <label className="field">
-        {t('webhook.url')}
-        <input className="input on-surface mono" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhook" style={{ fontSize: 14 }} />
-      </label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{t('webhook.events')}</span>
-        <div className="chips">
-          {EVENT_KEYS.map((k) => {
-            const on = events.includes(k) || events.includes('ALL');
-            return (
-              <button
-                key={k}
-                type="button"
-                className="evt-toggle"
-                aria-pressed={on}
-                onClick={() => setEvents((ev) => (ev.includes('ALL') ? EVENT_KEYS.filter((x) => x !== k) : on ? ev.filter((x) => x !== k) : [...ev, k]))}
-              >
-                {t(`evt.${k}` as Key)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{t('webhook.overwrite')}</p>
-      <div>
-        <button type="button" className="btn btn-dark" disabled={!dirty || saving || !info.data} onClick={save}>
-          {saving ? <span className="spinner" /> : t('webhook.save')}
-        </button>
       </div>
     </section>
   );
