@@ -53,6 +53,9 @@ func New(opt Options, main http.Handler) *Server {
 	s.v2.RedirectTrailingSlash = false
 	s.v2.RedirectFixedPath = false
 	s.v2.Use(gin.Recovery(), cors)
+	if opt.DB != nil {
+		_ = opt.DB.AutoMigrate(&OpenAICred{})
+	}
 	s.register()
 	return s
 }
@@ -130,6 +133,16 @@ func (r result) decode(v interface{}) error {
 
 // call ejecuta una ruta Go con la clave dada y devuelve su respuesta.
 func (s *Server) call(method, path, key string, body interface{}) result {
+	return s.callWith(nil, method, path, key, body)
+}
+
+// callFrom es call conservando el host y las cabeceras X-Forwarded-* de la
+// petición original (las rutas que arman URLs públicas las necesitan).
+func (s *Server) callFrom(c *gin.Context, method, path, key string, body interface{}) result {
+	return s.callWith(c.Request, method, path, key, body)
+}
+
+func (s *Server) callWith(orig *http.Request, method, path, key string, body interface{}) result {
 	var rd io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
@@ -137,6 +150,17 @@ func (s *Server) call(method, path, key string, body interface{}) result {
 	}
 	req := httptest.NewRequest(method, path, rd)
 	req.Header.Set("apikey", key)
+	if orig != nil {
+		req.Host = orig.Host
+		for _, h := range []string{"X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"} {
+			if v := orig.Header.Get(h); v != "" {
+				req.Header.Set(h, v)
+			}
+		}
+		if orig.TLS != nil {
+			req.TLS = orig.TLS
+		}
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

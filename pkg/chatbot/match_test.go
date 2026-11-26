@@ -45,3 +45,14 @@ func TestIgnoredExpiredFinishSplit(t *testing.T) {
 		t.Fatalf("split = %q", p)
 	}
 }
+
+func TestIgnoredWildcards(t *testing.T) {
+	b := &Bot{IgnoreJIDs: []string{"@g.us"}}
+	if !Ignored(b, "120363000@g.us") || Ignored(b, "57300@s.whatsapp.net") {
+		t.Fatal("@g.us must ignore only groups")
+	}
+	b.IgnoreJIDs = []string{"@s.whatsapp.net"}
+	if Ignored(b, "120363000@g.us") || !Ignored(b, "57300@s.whatsapp.net") {
+		t.Fatal("@s.whatsapp.net must ignore only private chats")
+	}
+}

@@ -46,6 +46,10 @@ func Ignored(b *Bot, remoteJID string) bool {
 		if j == remoteJID || strings.TrimPrefix(j, "+") == user {
 			return true
 		}
+		// "@g.us" o "@s.whatsapp.net" ignoran todos los grupos o todos los chats individuales.
+		if strings.HasPrefix(j, "@") && strings.HasSuffix(remoteJID, j) {
+			return true
+		}
 	}
 	return false
 }

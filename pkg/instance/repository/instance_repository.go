@@ -172,7 +172,7 @@ func (i *instanceRepository) Delete(instanceId string) error {
 		}
 
 		// Chats, contactos y mensajes guardados (pkg/chatstore) y webhooks (pkg/webhooks).
-		for _, table := range []string{"chat_store_messages", "chat_store_chats", "chat_store_contacts", "webhook_configs", "webhook_deliveries", "chatbot_sessions", "chatbots", "chatwoot_links", "chatwoot_configs"} {
+		for _, table := range []string{"chat_store_messages", "chat_store_chats", "chat_store_contacts", "webhook_configs", "webhook_deliveries", "chatbot_sessions", "chatbots", "chatwoot_links", "chatwoot_configs", "compat_openai_creds"} {
 			if err := tx.Exec("DELETE FROM "+table+" WHERE instance_id = ?", instanceId).Error; err != nil {
 				return fmt.Errorf("erro ao deletar %s: %v", table, err)
 			}

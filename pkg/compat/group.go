@@ -310,4 +310,5 @@ func (s *Server) register() {
 	s.registerChat()
 	s.registerGroups()
 	s.registerLabels()
+	s.registerBots()
 }
