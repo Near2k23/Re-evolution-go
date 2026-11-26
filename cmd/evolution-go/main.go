@@ -283,6 +283,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	passkey_handler.RegisterRoutes(r, whatsmeowService)
 
 	overview.Register(r, authMiddleware, instanceService, connRepo, whatsmeowService.StoredDeviceJIDs, groupRepo.Members)
+	overview.RegisterPictures(r, authMiddleware, func(id string) *whatsmeow.Client {
+		whatsmeow_service.ClientMapsMu.Lock()
+		defer whatsmeow_service.ClientMapsMu.Unlock()
+		return clientPointer[id]
+	})
 	linegroups.Register(r, authMiddleware, groupRepo)
 	webhooks_handler.Register(r, authMiddleware, webhookSvc, instanceService, config.WebhookUrl)
 	extras.Register(r, authMiddleware, func(id string) *whatsmeow.Client {
