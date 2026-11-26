@@ -96,7 +96,7 @@ function Header({ line, group }: { line: Line; group: Group | null }) {
 
   return (
     <header className="detail-head">
-      <Avatar name={line.name} group={group} big />
+      <Avatar name={line.name} group={group} line={line} big />
       <div className="titles">
         <div className="row1">
           <h1 style={{ fontSize: 30 }}>{line.name}</h1>

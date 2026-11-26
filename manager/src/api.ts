@@ -270,6 +270,15 @@ async function request<T>(method: string, path: string, opts: { key?: string; bo
 
 type Wrapped<T> = { message: string; data: T };
 
+/** Foto de perfil de la línea como URL local, o null si no tiene o no está disponible. */
+export async function linePicture(id: string): Promise<string | null> {
+  const base = (current?.apiUrl ?? defaultApiUrl()).replace(/\/+$/, '');
+  const res = await fetch(`${base}/instance/picture/${id}`, { headers: { apikey: current?.apiKey ?? '' } });
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return blob.type.startsWith('image/') ? URL.createObjectURL(blob) : null;
+}
+
 export const api = {
   /** Comprueba servidor y clave global. */
   async verify(apiUrl: string, apiKey: string): Promise<void> {

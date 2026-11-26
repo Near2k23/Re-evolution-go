@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Group, type Line, type LineState } from '../api';
+import { api, linePicture, type Group, type Line, type LineState } from '../api';
 import { useAuth } from '../auth';
 import { LanguageSelect, useI18n } from '../i18n';
 import { describe, formatPhone, groupColors, initials, stateLabel } from '../format';
@@ -200,11 +200,23 @@ export function StatePill({ state, label }: { state: LineState; label?: string }
   );
 }
 
-export function Avatar({ name, group, big = false }: { name: string; group?: Group | null; big?: boolean }) {
+export function Avatar({ name, group, big = false, line }: { name: string; group?: Group | null; big?: boolean; line?: Line }) {
   const c = groupColors(group);
+  // La foto solo existe si la línea tiene cuenta vinculada; se pide una vez por hora.
+  const pic = useQuery({
+    queryKey: ['picture', line?.id, line?.jid],
+    queryFn: () => linePicture(line!.id),
+    enabled: !!line?.jid,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 6 * 60 * 60 * 1000,
+    retry: false,
+  });
+  const [broken, setBroken] = useState(false);
+  const src = !broken ? pic.data : null;
+  const size = big ? { width: 64, height: 64, borderRadius: 18, fontSize: 20 } : {};
   return (
-    <span aria-hidden="true" className="avatar" style={{ background: c.bg, color: c.fg, ...(big ? { width: 64, height: 64, borderRadius: 18, fontSize: 20 } : {}) }}>
-      {initials(name)}
+    <span aria-hidden="true" className="avatar" style={{ background: c.bg, color: c.fg, ...size }}>
+      {src ? <img src={src} alt="" onError={() => setBroken(true)} /> : initials(name)}
     </span>
   );
 }
@@ -263,7 +275,7 @@ export function LineCard({ line, group, onReconnect, busy }: { line: Line; group
   return (
     <article className="line-card">
       <div className="top">
-        <Avatar name={line.name} group={group} />
+        <Avatar name={line.name} group={group} line={line} />
         <div className="who">
           <span className="name">{line.name}</span>
           <span className="phone">{line.phone ? formatPhone(line.phone) : t('card.noNumber')}</span>

@@ -232,7 +232,7 @@ export default function Grupos() {
 function MemberRow({ line, group, action }: { line: Line; group: Group | null; action: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 14, background: 'var(--tint)', flexWrap: 'wrap' }}>
-      <Avatar name={line.name} group={group} />
+      <Avatar name={line.name} group={group} line={line} />
       <Link to={`/lineas/${line.id}`} style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14.5, fontWeight: 600, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {line.name}
       </Link>

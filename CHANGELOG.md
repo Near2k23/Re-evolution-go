@@ -1,5 +1,11 @@
 # Evolution GO - Changelog
 
+## Sin publicar
+
+### 🆕 Nuevo
+- **Foto de perfil de la línea** en el manager en lugar de las iniciales
+  (`GET /instance/picture/:instanceId`, en caché unas horas).
+
 ## v0.7.3-re.10 (fork Re-evolution-go: lo pendiente del plan)
 
 ### 🆕 Nuevo
