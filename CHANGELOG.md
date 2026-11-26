@@ -1,5 +1,28 @@
 # Evolution GO - Changelog
 
+## v0.7.3-re.10 (fork Re-evolution-go: lo pendiente del plan)
+
+### 🆕 Nuevo
+- **Amazon SQS, Kafka y Pusher** como destinos de eventos para todas las
+  líneas, con filtro de eventos y formato v2 opcionales.
+- **Media en base64 por línea** en los webhooks (`"base64": true`, también en
+  el manager).
+- **Rutas v2 de bots** (`/typebot`, `/openai` con credenciales, `/dify`,
+  `/flowise`, `/n8n`, `/evolutionBot`) y **de Chatwoot** (`/chatwoot/set`,
+  `/chatwoot/find`) sobre los bots y Chatwoot de Evolution GO.
+- **Rutas v2 `/websocket`, `/rabbitmq` y `/nats`** `set|find` por línea.
+- **Manager:** menú del chat para archivar, fijar, silenciar, marcar como no
+  leído y activar mensajes temporales; interruptor «Incluir archivos».
+- Los bots aceptan `@g.us` y `@s.whatsapp.net` en los chats ignorados para
+  ignorar todos los grupos o todos los chats individuales.
+- `docs/SYNC_UPSTREAM.md`: cómo traer versiones nuevas de Evolution GO.
+
+### ⬆️ Notas de actualización
+- Columna nueva `webhook_configs.base64` y tabla `compat_openai_creds`
+  (AutoMigrate). Variables nuevas opcionales `SQS_*`, `KAFKA_*` y `PUSHER_*`.
+- `syncFullHistory` se informa como `true` en las rutas v2, porque es lo que
+  ya hacía el servidor.
+
 ## v0.7.3-re.9 (fork Re-evolution-go, Fase 6: extras)
 
 ### 🆕 Nuevo

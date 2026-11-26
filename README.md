@@ -153,6 +153,10 @@ una configuración propia en `GET/PUT /webhook/:instanceId`:
 - Siempre llegan `X-Webhook-Event` y `X-Webhook-Delivery` (ID único, útil para
   descartar duplicados).
 
+Con `"base64": true` (o «Incluir archivos» en el manager) la media recibida y
+enviada llega en base64 dentro del evento; `WEBHOOK_FILES=true` lo activa para
+todas las líneas.
+
 Los envíos fallidos se reintentan con espera creciente (1 s, 2 s, 4 s… hasta
 60 s; los 4xx no se reintentan salvo 408, 425 y 429). Las entregas se
 registran (`GET /webhook/:instanceId/deliveries`) y `POST
@@ -214,6 +218,23 @@ el agente sale por la línea. Opciones: `signMessages`, `reopenConversation`,
 comprueba la conexión. Detrás de un proxy, el servidor usa
 `X-Forwarded-Proto`/`X-Forwarded-Host` para armar la URL del webhook.
 
+## SQS, Kafka y Pusher
+
+Además del webhook, RabbitMQ, NATS y WebSocket, el servidor puede enviar los
+eventos de todas las líneas a:
+
+| Destino | Variables |
+|---|---|
+| Amazon SQS | `SQS_ENABLED`, `SQS_QUEUE_URL` (una cola; `.fifo` agrupa por línea), `SQS_REGION`, `SQS_ACCESS_KEY_ID`, `SQS_SECRET_ACCESS_KEY` (o las credenciales por defecto de AWS), `SQS_ENDPOINT` (compatibles) |
+| Kafka | `KAFKA_ENABLED`, `KAFKA_BROKERS`, `KAFKA_TOPIC` (`evolution-events`), `KAFKA_TOPIC_PER_EVENT`, `KAFKA_SASL_MECHANISM` (`plain`, `scram-sha-256`, `scram-sha-512`), `KAFKA_SASL_USERNAME`, `KAFKA_SASL_PASSWORD`, `KAFKA_TLS` |
+| Pusher | `PUSHER_ENABLED`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` o `PUSHER_HOST` (Soketi), `PUSHER_CHANNEL` (por defecto, el nombre de la línea) |
+
+Cada destino acepta `<DESTINO>_EVENTS` (grupos como `MESSAGE,CONNECTION` o
+nombres de evento; vacío = todos) y `<DESTINO>_FORMAT=evolution-api`. Kafka usa
+el ID de la línea como clave, así que los eventos de una línea llegan en orden.
+Pusher admite hasta 10 KB: un evento mayor llega como aviso con
+`"truncated": true`. Los envíos fallidos se reintentan 3 veces.
+
 ## Métricas
 
 `GET /metrics` devuelve métricas en formato Prometheus. Pide la clave global
@@ -268,7 +289,9 @@ igual. La línea se identifica por su **nombre** (`:instanceName`) y la cabecera
 | Chat | `POST /chat/{whatsappNumbers, markMessageAsRead, updateMessage, sendPresence, fetchProfilePictureUrl, fetchProfile, updateBlockStatus, findChats, findMessages, findContacts, getBase64FromMediaMessage, updateProfileName, updateProfileStatus, updateProfilePicture, archiveChat, markChatUnread, fetchBusinessProfile}/:n`, `DELETE /chat/deleteMessageForEveryone/:n`, `GET /chat/{findChatByRemoteJid, fetchPrivacySettings}/:n` |
 | Grupos | `POST /group/{create, updateGroupSubject, updateGroupDescription, updateGroupPicture, updateSetting, updateParticipant, revokeInviteCode, toggleEphemeral}/:n`, `GET /group/{fetchAllGroups, findGroupInfos, participants, inviteCode, inviteInfo, acceptInviteCode}/:n`, `DELETE /group/leaveGroup/:n` |
 | Etiquetas | `GET /label/findLabels/:n`, `POST /label/handleLabel/:n` |
-| Ajustes | `POST /settings/set/:n`, `GET /settings/find/:n`, `POST /proxy/set/:n`, `GET /proxy/find/:n`, `POST /webhook/set/:n`, `GET /webhook/find/:n` |
+| Ajustes | `POST /settings/set/:n`, `GET /settings/find/:n`, `POST /proxy/set/:n`, `GET /proxy/find/:n`, `POST /webhook/set/:n`, `GET /webhook/find/:n`, `POST /{websocket, rabbitmq, nats}/set/:n`, `GET /{websocket, rabbitmq, nats}/find/:n` |
+| Bots | `/{typebot, openai, dify, flowise, n8n, evolutionBot}/{create, find, fetch/:id, update/:id, delete/:id, fetchSessions/:id, changeStatus, fetchSettings}/:n`, `/openai/creds/:n` (y `DELETE /openai/creds/:id/:n`) |
+| Chatwoot | `POST /chatwoot/set/:n`, `GET /chatwoot/find/:n` |
 
 Las respuestas imitan las de v2 (`key{remoteJid, fromMe, id}`, `message`,
 `messageType`, `messageTimestamp`, `status`…) y los errores usan
@@ -288,8 +311,20 @@ etiquetas → `labels.edit|association`. Los eventos sin equivalente no se
 envían en este formato. `WEBHOOK_FORMAT=evolution-api` aplica lo mismo al
 webhook global; el resto de líneas sigue con el formato de Evolution GO.
 
-No disponible por ahora: Chatwoot, bots y plantillas con las rutas de v2 (usan
-su propia API, ver arriba), `base64` en webhooks y SQS/Kafka.
+Diferencias con v2:
+
+- Los bots v2 se guardan como bots de Evolution GO (`/bots/:id`), así que
+  también aparecen en el manager. OpenAI solo admite `chatCompletion`; el
+  disparador `advanced` y los ajustes por línea (`/…/settings`,
+  `/…/ignoreJid`) no existen: esas opciones van en cada bot.
+- WebSocket, RabbitMQ y NATS comparten la lista de eventos de la línea con el
+  webhook.
+- `syncFullHistory` siempre es `true`: al vincular se pide el historial
+  completo.
+- No hay plantillas de la API oficial de Meta ni caché en Redis. Las sesiones
+  de WhatsApp viven en la memoria del proceso, así que varias réplicas no
+  pueden compartir una línea aunque compartan caché: para repartir carga, cada
+  réplica debe llevar sus propias líneas (`CLIENT_NAME` distinto).
 
 ---
 
