@@ -12,6 +12,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/metrics"
+	"github.com/evolution-foundation/evolution-go/pkg/sinks"
 	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	"image/png"
 	"io"
@@ -2218,6 +2219,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 }
 
 func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
+	sinks.Publish(jsonData) // SQS, Kafka y Pusher (filtran por su cuenta)
 	var data map[string]interface{}
 	if err := json.Unmarshal(jsonData, &data); err != nil {
 		return

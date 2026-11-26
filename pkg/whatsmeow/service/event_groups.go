@@ -46,6 +46,9 @@ var eventGroups = map[string]string{
 	"ButtonClick":         event_types.BUTTON_CLICK,
 }
 
+// EventGroupFor es eventGroupFor para otros paquetes.
+func EventGroupFor(eventType string) string { return eventGroups[eventType] }
+
 // eventGroupFor devuelve el grupo de suscripción de un evento, o "" si no tiene.
 func eventGroupFor(eventType string) string {
 	return eventGroups[eventType]

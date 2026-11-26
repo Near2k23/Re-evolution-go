@@ -383,7 +383,7 @@ func (s *Service) Deliver(t Target, payload []byte, test bool) Result {
 		}
 		return s.deliver(t, payload, event, path, test)
 	}
-	conv := evoformat.Convert(payload, evoformat.Meta{ServerURL: s.settings.ServerURL, Sender: s.jidOf(t.InstanceID), Destination: t.URL})
+	conv := evoformat.Convert(payload, evoformat.Meta{ServerURL: s.settings.ServerURL, Sender: s.JIDOf(t.InstanceID), Destination: t.URL})
 	res := Result{OK: true, URL: t.URL}
 	for _, c := range conv {
 		res = s.deliver(t, c.Payload, c.Event, evoformat.Path(c.Event), false)
@@ -391,8 +391,8 @@ func (s *Service) Deliver(t Target, payload []byte, test bool) Result {
 	return res
 }
 
-// jidOf devuelve el JID de la línea (sin dispositivo), con caché.
-func (s *Service) jidOf(instanceID string) string {
+// JIDOf devuelve el JID de la línea (sin dispositivo), con caché.
+func (s *Service) JIDOf(instanceID string) string {
 	if v, ok := s.jids.Load(instanceID); ok && v.(string) != "" {
 		return v.(string)
 	}

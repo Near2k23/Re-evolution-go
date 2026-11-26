@@ -14,10 +14,12 @@ import (
 	chatwoot_handler "github.com/evolution-foundation/evolution-go/pkg/chatwoot/handler"
 	"github.com/evolution-foundation/evolution-go/pkg/compat"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
+	"github.com/evolution-foundation/evolution-go/pkg/evoformat"
 	"github.com/evolution-foundation/evolution-go/pkg/extras"
 	"github.com/evolution-foundation/evolution-go/pkg/linegroups"
 	"github.com/evolution-foundation/evolution-go/pkg/metrics"
 	"github.com/evolution-foundation/evolution-go/pkg/overview"
+	"github.com/evolution-foundation/evolution-go/pkg/sinks"
 	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	webhooks_handler "github.com/evolution-foundation/evolution-go/pkg/webhooks/handler"
 	"log"
@@ -343,6 +345,15 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)
 	})
+
+	// SQS, Kafka y Pusher (SQS_ENABLED, KAFKA_ENABLED, PUSHER_ENABLED).
+	sinkHub := sinks.FromEnv(context.Background(), sinks.Options{
+		Group: whatsmeow_service.EventGroupFor,
+		Meta: func(id string) evoformat.Meta {
+			return evoformat.Meta{ServerURL: webhookSvc.Settings().ServerURL, Sender: webhookSvc.JIDOf(id)}
+		},
+	})
+	sinks.SetDefault(sinkHub)
 
 	if metrics.Enabled() {
 		mo := metrics.OptionsFromEnv()
