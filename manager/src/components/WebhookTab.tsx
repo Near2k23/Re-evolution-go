@@ -23,6 +23,7 @@ export default function WebhookTab({ line }: { line: Line }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [byEvents, setByEvents] = useState(false);
   const [evoFormat, setEvoFormat] = useState(false);
+  const [base64, setBase64] = useState(false);
   const [secretAction, setSecretAction] = useState<'keep' | 'new' | 'remove'>('keep');
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,6 +34,7 @@ export default function WebhookTab({ line }: { line: Line }) {
     setRows(Object.entries(hook.data.headers ?? {}).map(([k, v]) => ({ k, v })));
     setByEvents(hook.data.byEvents);
     setEvoFormat(hook.data.format === 'evolution-api');
+    setBase64(hook.data.base64);
   }, [hook.data]);
 
   if (hook.isLoading || info.isLoading) return <Loading />;
@@ -41,7 +43,7 @@ export default function WebhookTab({ line }: { line: Line }) {
 
   const headersObj = Object.fromEntries(rows.filter((r) => r.k.trim()).map((r) => [r.k.trim(), r.v]));
   const basicDirty = url !== line.webhook || events.slice().sort().join() !== eventsList(line.events).sort().join();
-  const advDirty = JSON.stringify(headersObj) !== JSON.stringify(h.headers ?? {}) || byEvents !== h.byEvents || evoFormat !== (h.format === 'evolution-api') || secretAction !== 'keep';
+  const advDirty = JSON.stringify(headersObj) !== JSON.stringify(h.headers ?? {}) || byEvents !== h.byEvents || evoFormat !== (h.format === 'evolution-api') || base64 !== h.base64 || secretAction !== 'keep';
 
   async function save() {
     setSaving(true);
@@ -56,7 +58,7 @@ export default function WebhookTab({ line }: { line: Line }) {
         });
       }
       if (advDirty) {
-        const res = await api.saveWebhook(line.id, { headers: headersObj, byEvents, format: evoFormat ? 'evolution-api' : '', secret: secretAction });
+        const res = await api.saveWebhook(line.id, { headers: headersObj, byEvents, format: evoFormat ? 'evolution-api' : '', base64, secret: secretAction });
         if (res.secret) setNewSecret(res.secret);
       }
       setSecretAction('keep');
@@ -136,6 +138,16 @@ export default function WebhookTab({ line }: { line: Line }) {
             <span>{t('webhook.evoFormat.desc')}</span>
           </div>
           <button type="button" role="switch" className="switch" aria-checked={evoFormat} aria-label={t('webhook.evoFormat')} onClick={() => setEvoFormat((v) => !v)}>
+            <span />
+          </button>
+        </div>
+
+        <div className="setting">
+          <div className="txt">
+            <b>{t('webhook.base64')}</b>
+            <span>{t('webhook.base64.desc')}</span>
+          </div>
+          <button type="button" role="switch" className="switch" aria-checked={base64} aria-label={t('webhook.base64')} onClick={() => setBase64((v) => !v)}>
             <span />
           </button>
         </div>

@@ -158,6 +158,89 @@ function Ticks({ status }: { status: StoredMessage['status'] }) {
   );
 }
 
+const EPHEMERAL = [0, 86400, 604800, 7776000] as const;
+
+// ChatActions es el menú del chat: archivar, fijar, silenciar, no leído y temporales.
+function ChatActions({ line, chat, info, enabled }: { line: Line; chat: string; info: StoredChat | null; enabled: boolean }) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const muted = !!info?.mutedUntil && new Date(info.mutedUntil).getTime() > Date.now();
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [open]);
+
+  async function run(fn: () => Promise<unknown>, done: string, after?: () => void) {
+    setBusy(true);
+    try {
+      await fn();
+      toast(done);
+      setOpen(false);
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['chats', line.id] });
+        qc.invalidateQueries({ queryKey: ['chat', line.id, chat] });
+      }, 700);
+      after?.();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('common.saveFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const act = (a: Parameters<typeof api.chatAction>[1], done: string, extra?: Record<string, unknown>, after?: () => void) =>
+    run(() => api.chatAction(line.token, a, chat, extra), done, after);
+
+  return (
+    <div className="menu-wrap" ref={wrap}>
+      <button type="button" className="btn btn-soft btn-icon" aria-label={t('chatAct.title')} aria-haspopup="menu" aria-expanded={open}
+        disabled={!enabled} title={enabled ? t('chatAct.title') : t('chats.lineDown')} onClick={() => setOpen((v) => !v)}>
+        <Icon name="opciones" size={20} />
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          <button type="button" role="menuitem" disabled={busy} onClick={() => act(info?.archived ? 'unarchive' : 'archive', info?.archived ? t('chatAct.unarchived') : t('chatAct.archived'))}>
+            {info?.archived ? t('chatAct.unarchive') : t('chatAct.archive')}
+          </button>
+          <button type="button" role="menuitem" disabled={busy} onClick={() => act(info?.pinned ? 'unpin' : 'pin', info?.pinned ? t('chatAct.unpinned') : t('chatAct.pinned'))}>
+            {info?.pinned ? t('chatAct.unpin') : t('chatAct.pin')}
+          </button>
+          <button type="button" role="menuitem" disabled={busy} onClick={() => act('markunread', t('chatAct.markedUnread'), {}, () => navigate(`/chats/${line.id}`))}>
+            {t('chatAct.markUnread')}
+          </button>
+          <span className="menu-label">{t('chatAct.mute')}</span>
+          {muted ? (
+            <button type="button" role="menuitem" disabled={busy} onClick={() => act('unmute', t('chatAct.unmuted'))}>{t('chatAct.unmute')}</button>
+          ) : (
+            ([[8 * 3600, 'chatAct.mute8h'], [7 * 86400, 'chatAct.muteWeek'], [-1, 'chatAct.muteAlways']] as const).map(([d, k]) => (
+              <button key={d} type="button" role="menuitem" disabled={busy} onClick={() => act('mute', t('chatAct.muted'), { duration: d })}>{t(k)}</button>
+            ))
+          )}
+          <span className="menu-label">{t('chatAct.ephemeral')}</span>
+          {EPHEMERAL.map((e) => (
+            <button key={e} type="button" role="menuitem" disabled={busy} onClick={() => run(() => api.ephemeral(line.token, chat, e), t('chatAct.ephemeralSet'))}>
+              {t(`chatAct.eph.${e}` as Key)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Conversation({ line, chat }: { line: Line; chat: string }) {
   const i = useI18n();
   const { t } = i;
@@ -220,6 +303,7 @@ function Conversation({ line, chat }: { line: Line; chat: string }) {
             {isGroup ? t('chats.group') : jidLabel(chat)} · {line.name}
           </span>
         </div>
+        <ChatActions line={line} chat={chat} info={chatInfo ?? null} enabled={canSend} />
       </header>
 
       <div className="chat-scroll">

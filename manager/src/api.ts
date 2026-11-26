@@ -35,6 +35,7 @@ export interface WebhookInfo {
   headers: Record<string, string>;
   byEvents: boolean;
   format: '' | 'evolution-api';
+  base64: boolean;
   hasSecret: boolean;
   secret?: string;
   stats24h: { ok: number; failed: number };
@@ -296,8 +297,12 @@ export const api = {
     request<Wrapped<StoredMessage[]>>('GET', `/store/${id}/messages?limit=50&chat=${encodeURIComponent(chat)}${before ? `&before=${encodeURIComponent(before)}` : ''}`).then((r) => r.data ?? []),
   markRead: (id: string, chat: string) => request('POST', `/store/${id}/read`, { body: { chat } }),
   sendText: (token: string, number: string, text: string) => request('POST', '/send/text', { key: token, body: { number, text } }),
+  // Acciones de chat (archivar, fijar, silenciar, no leído) con el token de la línea.
+  chatAction: (token: string, action: 'archive' | 'unarchive' | 'pin' | 'unpin' | 'mute' | 'unmute' | 'markunread', chat: string, extra: Record<string, unknown> = {}) =>
+    request('POST', `/chat/${action}`, { key: token, body: { chat, ...extra } }),
+  ephemeral: (token: string, chat: string, expiration: number) => request('POST', '/group/ephemeral', { key: token, body: { groupJid: chat, expiration } }),
   webhook: (id: string) => request<Wrapped<WebhookInfo>>('GET', `/webhook/${id}`).then((r) => r.data),
-  saveWebhook: (id: string, body: { headers: Record<string, string>; byEvents: boolean; format: '' | 'evolution-api'; secret: 'keep' | 'new' | 'remove' }) =>
+  saveWebhook: (id: string, body: { headers: Record<string, string>; byEvents: boolean; format: '' | 'evolution-api'; base64: boolean; secret: 'keep' | 'new' | 'remove' }) =>
     request<Wrapped<WebhookInfo>>('PUT', `/webhook/${id}`, { body }).then((r) => r.data),
   testWebhook: (id: string) => request<Wrapped<{ ok: boolean; statusCode: number; durationMs: number; error?: string; url: string }>>('POST', `/webhook/${id}/test`).then((r) => r.data),
   deliveries: (id: string) => request<Wrapped<Delivery[]>>('GET', `/webhook/${id}/deliveries?limit=30`).then((r) => r.data ?? []),
