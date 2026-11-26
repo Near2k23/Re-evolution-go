@@ -36,6 +36,7 @@ type view struct {
 	Headers    map[string]string `json:"headers"`
 	ByEvents   bool              `json:"byEvents"`
 	Format     string            `json:"format"`
+	Base64     bool              `json:"base64"`
 	HasSecret  bool              `json:"hasSecret"`
 	Secret     string            `json:"secret,omitempty"` // solo al generarlo
 	Stats24h   webhooks.Stats    `json:"stats24h"`
@@ -64,7 +65,7 @@ func Register(r *gin.Engine, mw auth_middleware.Middleware, svc *webhooks.Servic
 			if cfg.Headers != nil {
 				v.Headers = cfg.Headers
 			}
-			v.ByEvents, v.HasSecret, v.Format = cfg.ByEvents, cfg.Secret != "", cfg.Format
+			v.ByEvents, v.HasSecret, v.Format, v.Base64 = cfg.ByEvents, cfg.Secret != "", cfg.Format, cfg.Base64
 		}
 		v.Stats24h = svc.Stats(id, time.Now().Add(-24*time.Hour))
 		st := svc.Settings()
@@ -94,6 +95,8 @@ func Register(r *gin.Engine, mw auth_middleware.Middleware, svc *webhooks.Servic
 			ByEvents bool              `json:"byEvents"`
 			// Format: "" (Evolution GO) o "evolution-api"; nil = no cambiar.
 			Format *string `json:"format"`
+			// Base64: incluir la media en base64; nil = no cambiar.
+			Base64 *bool `json:"base64"`
 			// Secret: "keep" (por defecto), "new" genera uno nuevo, "remove" lo quita.
 			Secret string `json:"secret"`
 		}
@@ -122,6 +125,12 @@ func Register(r *gin.Engine, mw auth_middleware.Middleware, svc *webhooks.Servic
 			}
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
+		}
+		if b.Base64 != nil {
+			if err := svc.SetBase64(id, *b.Base64); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 		if b.Format != nil {
 			if err := svc.SetFormat(id, *b.Format); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/chatstore"
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	"github.com/evolution-foundation/evolution-go/pkg/metrics"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -2838,7 +2839,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 
 	postMap["data"] = messageData
 
-	if isMedia && s.config.WebhookFiles {
+	if isMedia && (s.config.WebhookFiles || webhooks.WantsBase64(instance.Id)) {
 		var data []byte
 		var err error
 

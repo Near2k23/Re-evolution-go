@@ -45,6 +45,7 @@ type Config struct {
 	Headers    map[string]string `json:"headers" gorm:"serializer:json;type:jsonb"`
 	ByEvents   bool              `json:"byEvents"`
 	Format     string            `json:"format" gorm:"size:24"` // "" (Evolution GO) o "evolution-api"
+	Base64     bool              `json:"base64"`                // incluir la media en base64 en los eventos
 	Secret     string            `json:"-"`
 	UpdatedAt  time.Time         `json:"updatedAt"`
 }
@@ -213,6 +214,24 @@ func (s *Service) SetFormat(instanceID, format string) error {
 	err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "instance_id"}}, DoUpdates: clause.AssignmentColumns([]string{"format", "updated_at"})}).Create(&c).Error
 	s.cache.Delete(instanceID)
 	return err
+}
+
+// SetBase64 activa o quita la media en base64 en los eventos de una línea.
+func (s *Service) SetBase64(instanceID string, on bool) error {
+	c := Config{InstanceID: instanceID, Headers: map[string]string{}, Base64: on, UpdatedAt: time.Now()}
+	err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "instance_id"}}, DoUpdates: clause.AssignmentColumns([]string{"base64", "updated_at"})}).Create(&c).Error
+	s.cache.Delete(instanceID)
+	return err
+}
+
+// WantsBase64 indica si la línea pidió la media en base64 en sus eventos.
+func WantsBase64(instanceID string) bool {
+	s := Default()
+	if s == nil {
+		return false
+	}
+	c := s.Get(instanceID)
+	return c != nil && c.Base64
 }
 
 // NewSecret genera un secreto aleatorio.

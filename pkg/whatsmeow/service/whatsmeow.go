@@ -12,6 +12,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/chatwoot"
 	"github.com/evolution-foundation/evolution-go/pkg/connlog"
 	"github.com/evolution-foundation/evolution-go/pkg/metrics"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooks"
 	"image/png"
 	"io"
 	"math/rand"
@@ -1477,7 +1478,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["referral"] = referral
 		}
 
-		if mycli.config.WebhookFiles {
+		if mycli.config.WebhookFiles || webhooks.WantsBase64(mycli.userID) {
 			isMedia := false
 
 			img := evt.Message.GetImageMessage()

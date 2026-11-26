@@ -346,7 +346,7 @@ func nilIfEmpty(s string) interface{} {
 func settingsView(i *instance_model.Instance) gin.H {
 	return gin.H{
 		"rejectCall": i.RejectCall, "msgCall": i.MsgRejectCall, "groupsIgnore": i.IgnoreGroups, "alwaysOnline": i.AlwaysOnline,
-		"readMessages": i.ReadMessages, "readStatus": i.ReadStatus, "syncFullHistory": false,
+		"readMessages": i.ReadMessages, "readStatus": i.ReadStatus, "syncFullHistory": true,
 	}
 }
 
@@ -451,7 +451,7 @@ func (s *Server) currentSettings(i *instance_model.Instance) *instance_model.Adv
 
 func settingsOut(st *instance_model.AdvancedSettings) gin.H {
 	return gin.H{"rejectCall": st.RejectCall, "msgCall": st.MsgRejectCall, "groupsIgnore": st.IgnoreGroups,
-		"alwaysOnline": st.AlwaysOnline, "readMessages": st.ReadMessages, "readStatus": st.ReadStatus, "syncFullHistory": false}
+		"alwaysOnline": st.AlwaysOnline, "readMessages": st.ReadMessages, "readStatus": st.ReadStatus, "syncFullHistory": true}
 }
 
 func (s *Server) setSettings(c *gin.Context) {
@@ -525,6 +525,7 @@ type webhookCfg struct {
 	Events   []string
 	Headers  map[string]string
 	ByEvents bool
+	Base64   bool
 }
 
 // webhookFrom lee el webhook de un cuerpo v2 ({webhook:{…}} o los campos sueltos).
@@ -547,6 +548,7 @@ func webhookFrom(b M) *webhookCfg {
 	enabled, has := boolOf(w, "enabled")
 	cfg.Enabled = enabled || (!has && cfg.URL != "")
 	cfg.ByEvents, _ = boolOf(w, "byEvents", "webhookByEvents", "webhook_by_events")
+	cfg.Base64, _ = boolOf(w, "base64", "webhookBase64", "webhook_base64")
 	if h := evoformat.Obj(w, "headers"); h != nil {
 		for k, v := range h {
 			if s, ok := v.(string); ok {
@@ -576,6 +578,9 @@ func (s *Server) applyWebhook(i *instance_model.Instance, w *webhookCfg) error {
 		if err := s.opt.Webhooks.SetFormat(i.Id, webhooks.FormatEvolutionAPI); err != nil {
 			return err
 		}
+		if err := s.opt.Webhooks.SetBase64(i.Id, w.Base64); err != nil {
+			return err
+		}
 	}
 	if s.opt.Reload != nil {
 		_ = s.opt.Reload(i.Id) // si la línea no está en ejecución, la toma al arrancar
@@ -591,6 +596,7 @@ func (s *Server) webhookView(i *instance_model.Instance) gin.H {
 		if cfg := s.opt.Webhooks.Get(i.Id); cfg != nil {
 			v["headers"], v["webhookHeaders"] = cfg.Headers, cfg.Headers
 			v["byEvents"], v["webhookByEvents"] = cfg.ByEvents, cfg.ByEvents
+			v["base64"], v["webhookBase64"] = cfg.Base64, cfg.Base64
 		}
 	}
 	return v
