@@ -15,12 +15,13 @@ export function stateDesc(i: I18n, s: LineState) {
 
 /** Dos o tres letras para el avatar: «Ventas-3» → «V3», «Soporte» → «SO». */
 export function initials(name: string): string {
-  const parts = name.split(/[-_\s]+/).filter(Boolean);
+  // Solo cuentan las palabras con letras o números («Sales — North» → SN).
+  const parts = name.split(/[-_\s]+/).filter((p) => /[\p{L}\p{N}]/u.test(p));
   if (parts.length >= 2) {
     const [a, b] = parts;
     return (a[0] + (/^\d+$/.test(b) ? b : b[0])).toUpperCase().slice(0, 3);
   }
-  return name.slice(0, 2).toUpperCase();
+  return (parts[0] ?? name).slice(0, 2).toUpperCase();
 }
 
 /** Número en formato internacional sin asumir el país: se agrupa de 3 en 3 desde el final (últimos 4 juntos). */

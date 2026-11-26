@@ -116,7 +116,7 @@ export default function Lineas() {
 
       {groups.length > 0 && (
         <div className="chips scroll" role="group" aria-label={t('lines.groupFilter')}>
-          <span className="muted" style={{ fontSize: 13, marginRight: 4 }}>{t('lines.group')}</span>
+          <span className="muted" style={{ fontSize: 13, marginRight: 4, whiteSpace: 'nowrap', flexShrink: 0 }}>{t('lines.group')}</span>
           <button type="button" className="chip" aria-pressed={group === 'todas'} onClick={() => setGroup('todas')}>
             {t('lines.allGroups')} <span className="count">{i.num(lines.length)}</span>
           </button>
