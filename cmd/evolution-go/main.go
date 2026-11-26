@@ -379,6 +379,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			defer whatsmeow_service.ClientMapsMu.Unlock()
 			return clientPointer[id]
 		},
+		RabbitMQ: config.AmqpUrl != "", NATS: config.NatsUrl != "",
 		Reload: whatsmeowService.UpdateInstanceSettings,
 	}, r)
 }

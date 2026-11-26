@@ -301,6 +301,10 @@ func (s *Server) register() {
 	s.handle(http.MethodGet, "/proxy/find/:instanceName", s.auth, s.findProxy)
 	s.handle(http.MethodPost, "/webhook/set/:instanceName", s.auth, s.setWebhook)
 	s.handle(http.MethodGet, "/webhook/find/:instanceName", s.auth, s.findWebhook)
+	for _, name := range []string{"websocket", "rabbitmq", "nats"} {
+		s.handle(http.MethodPost, "/"+name+"/set/:instanceName", s.auth, s.setDestination(name))
+		s.handle(http.MethodGet, "/"+name+"/find/:instanceName", s.auth, s.findDestination(name))
+	}
 
 	s.registerMessages()
 	s.registerChat()

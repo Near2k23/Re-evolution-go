@@ -249,6 +249,22 @@ func TestV2Flow(t *testing.T) {
 		t.Fatalf("webhook/find: %v", out)
 	}
 
+	// websocket/set activa el destino; rabbitmq sin servidor configurado falla.
+	if w, _ := do(s, http.MethodPost, "/websocket/set/ventas", "tok-ventas", map[string]interface{}{"websocket": map[string]interface{}{"enabled": true}}); w.Code != 201 {
+		t.Fatalf("websocket/set: %d %s", w.Code, w.Body.String())
+	}
+	var ws instance_model.Instance
+	db.First(&ws, "id = ?", inst.Id)
+	if ws.WebSocketEnable != "enabled" || ws.Events != "MESSAGE,CONNECTION" {
+		t.Fatalf("websocket not stored: %q %q", ws.WebSocketEnable, ws.Events)
+	}
+	if _, out := do(s, http.MethodGet, "/websocket/find/ventas", "tok-ventas", nil); out["enabled"] != true {
+		t.Fatalf("websocket/find: %v", out)
+	}
+	if w, _ := do(s, http.MethodPost, "/rabbitmq/set/ventas", "tok-ventas", map[string]interface{}{"enabled": true}); w.Code != 400 {
+		t.Fatalf("rabbitmq without server: %d", w.Code)
+	}
+
 	// DELETE /instance/delete/:id con la clave global es la ruta Go; con el nombre, la v2.
 	_, out = do(s, http.MethodDelete, "/instance/delete/"+inst.Id, "global", nil)
 	if out["data"] != "go-delete" {

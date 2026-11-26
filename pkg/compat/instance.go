@@ -627,3 +627,75 @@ func (s *Server) setWebhook(c *gin.Context) {
 func (s *Server) findWebhook(c *gin.Context) {
 	c.JSON(http.StatusOK, s.webhookView(inst(c)))
 }
+
+// ---------- websocket, rabbitmq y nats ----------
+
+// destination es un destino de eventos de la línea (columna de la instancia).
+type destination struct {
+	column    string
+	available func(o Options) bool
+	get       func(i *instance_model.Instance) string
+	set       func(i *instance_model.Instance, v string)
+}
+
+var destinations = map[string]destination{
+	"websocket": {"web_socket_enable", func(Options) bool { return true },
+		func(i *instance_model.Instance) string { return i.WebSocketEnable }, func(i *instance_model.Instance, v string) { i.WebSocketEnable = v }},
+	"rabbitmq": {"rabbitmq_enable", func(o Options) bool { return o.RabbitMQ },
+		func(i *instance_model.Instance) string { return i.RabbitmqEnable }, func(i *instance_model.Instance, v string) { i.RabbitmqEnable = v }},
+	"nats": {"nats_enable", func(o Options) bool { return o.NATS },
+		func(i *instance_model.Instance) string { return i.NatsEnable }, func(i *instance_model.Instance, v string) { i.NatsEnable = v }},
+}
+
+func enabledFlag(v string) bool { return v == "enabled" || v == "true" }
+
+func (s *Server) destinationView(i *instance_model.Instance, d destination) gin.H {
+	return gin.H{"enabled": enabledFlag(d.get(i)), "events": evoformat.EventsFor(strings.Split(i.Events, ","))}
+}
+
+// setDestination activa o desactiva un destino. Los eventos de Evolution GO
+// son una sola lista por línea (compartida con el webhook): si llegan, la
+// reemplazan.
+func (s *Server) setDestination(name string) gin.HandlerFunc {
+	d := destinations[name]
+	return func(c *gin.Context) {
+		i := inst(c)
+		b, ok := body(c)
+		if !ok {
+			return
+		}
+		if inner := evoformat.Obj(b, name); inner != nil {
+			b = inner
+		}
+		enabled, _ := boolOf(b, "enabled")
+		if enabled && !d.available(s.opt) {
+			v2Error(c, http.StatusBadRequest, name+" is not configured on this server")
+			return
+		}
+		val := ""
+		if enabled {
+			val = "enabled"
+		}
+		upd := map[string]interface{}{d.column: val}
+		if ev := strs(b, "events"); len(ev) > 0 {
+			upd["events"] = strings.Join(evoformat.GroupsFor(ev), ",")
+		}
+		if err := s.opt.DB.Model(&instance_model.Instance{}).Where("id = ?", i.Id).Updates(upd).Error; err != nil {
+			v2Error(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+		d.set(i, val)
+		if e, ok := upd["events"].(string); ok {
+			i.Events = e
+		}
+		if s.opt.Reload != nil {
+			_ = s.opt.Reload(i.Id)
+		}
+		c.JSON(http.StatusCreated, gin.H{name: gin.H{"instanceName": i.Name, name: s.destinationView(i, d)}})
+	}
+}
+
+func (s *Server) findDestination(name string) gin.HandlerFunc {
+	d := destinations[name]
+	return func(c *gin.Context) { c.JSON(http.StatusOK, s.destinationView(inst(c), d)) }
+}

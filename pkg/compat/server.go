@@ -31,6 +31,8 @@ type Options struct {
 	Webhooks   *webhooks.Service
 	// Client devuelve el cliente de whatsmeow de una línea (o nil).
 	Client func(instanceID string) *whatsmeow.Client
+	// RabbitMQ y NATS indican si el servidor tiene esas colas configuradas.
+	RabbitMQ, NATS bool
 	// Reload recarga la configuración de una línea en ejecución.
 	Reload func(instanceID string) error
 }
